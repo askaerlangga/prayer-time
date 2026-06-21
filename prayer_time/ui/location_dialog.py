@@ -1,7 +1,8 @@
 from gi.repository import Gtk, Adw, GObject, GLib
-import api
-import settings
-import i18n
+from prayer_time import api
+from prayer_time import settings
+from prayer_time import i18n
+
 
 class LocationDialog(Adw.Dialog):
     def __init__(self, parent_window, on_location_selected):

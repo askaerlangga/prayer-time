@@ -4,7 +4,7 @@ import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Gtk, Adw, Gdk, Gio
-from window import PrayerWindow
+from prayer_time.ui.window import PrayerWindow
 
 class PrayerApplication(Adw.Application):
     def __init__(self):
@@ -17,10 +17,11 @@ class PrayerApplication(Adw.Application):
     def do_startup(self):
         Adw.Application.do_startup(self)
         
-        # Load CSS stylesheet relative to this script
+        # Load CSS stylesheet relative to project root
         css_provider = Gtk.CssProvider()
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        css_path = os.path.join(script_dir, "style.css")
+        project_root = os.path.dirname(script_dir)
+        css_path = os.path.join(project_root, "data", "style.css")
         
         if os.path.exists(css_path):
             try:
@@ -38,7 +39,7 @@ class PrayerApplication(Adw.Application):
             
         # Launch tray helper process (with parent PID to allow termination signaling)
         try:
-            helper_path = os.path.join(script_dir, "tray_helper.py")
+            helper_path = os.path.join(script_dir, "service", "tray_helper.py")
             if os.path.exists(helper_path):
                 self.tray_process = subprocess.Popen(
                     ["python3", helper_path, str(os.getpid())],
@@ -66,3 +67,4 @@ class PrayerApplication(Adw.Application):
             except Exception as e:
                 print(f"Error terminating tray helper: {e}")
         Adw.Application.do_shutdown(self)
+

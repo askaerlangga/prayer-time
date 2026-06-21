@@ -71,8 +71,8 @@ def update_autostart(enable_status):
     autostart_file = os.path.join(autostart_dir, "prayer-time.desktop")
     if enable_status:
         try:
-            os.makedirs(autostart_dir, exist_ok=True)
-            main_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "main.py")
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            main_path = os.path.join(os.path.dirname(script_dir), "main.py")
             content = f"""[Desktop Entry]
 Type=Application
 Exec=python3 {main_path}

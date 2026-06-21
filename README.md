@@ -4,8 +4,8 @@ A desktop prayer times app for Linux built using GTK 4 and Libadwaita. It runs i
 
 ## Screenshots
 
-![Main Window](screenshot/main_window.png)
-![App Indicator](screenshot/app_indicator.png)
+![Main Window](data/screenshots/main_window.png)
+![App Indicator](data/screenshots/app_indicator.png)
 
 ## Features
 
@@ -45,13 +45,14 @@ Closing the main window minimizes the app to the system tray. Use the tray menu 
 ## Project Structure
 
 - `main.py` - Entry point
-- `app.py` - GTK 4 app setup
-- `window.py` - Main window and preferences UI
-- `location_dialog.py` - Location search dialog
-- `tray_helper.py` - System tray indicator (GTK 3 Ayatana AppIndicator)
-- `i18n.py` - Translation dictionary and helper
-- `settings.py` - Config manager (`~/.config/prayer-time/settings.json`)
-- `api.py` - Asynchronous API calls
+- `data/` - Layout resources (`style.css` and screenshots)
+- `prayer_time/` - Core application package
+  - `app.py` - GTK 4 application class
+  - `settings.py` - Config manager (`~/.config/prayer-time/settings.json`)
+  - `i18n.py` - Dynamic bilingual dictionary
+  - `api.py` - Asynchronous API caller
+  - `ui/` - Interface components (Window, Preferences, Location Dialog)
+  - `service/` - Background processes (GTK 3 System Tray Helper)
 
 ## Third-Party Services
 
@@ -62,3 +63,4 @@ Closing the main window minimizes the app to the system tray. Use the tray menu 
 ## License
 
 GPL-3.0. Copyright © 2026 Aska Erlangga.
+

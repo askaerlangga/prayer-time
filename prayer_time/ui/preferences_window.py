@@ -1,6 +1,7 @@
 from gi.repository import Gtk, Adw
-import settings
-import i18n
+from prayer_time import settings
+from prayer_time import i18n
+
 
 class PreferencesWindow(Adw.PreferencesWindow):
     def __init__(self, parent):

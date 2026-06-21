@@ -8,8 +8,10 @@ from gi.repository import Gtk, GLib, Gio
 gi.require_version('AyatanaAppIndicator3', '0.1')
 from gi.repository import AyatanaAppIndicator3 as appindicator
 
-# Import internationalization helper
-import i18n
+# Add parent directory of 'prayer_time' package to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from prayer_time import i18n
+
 
 # Paths
 SETTINGS_PATH = os.path.expanduser("~/.config/prayer-time/settings.json")

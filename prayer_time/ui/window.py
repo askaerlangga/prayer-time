@@ -2,11 +2,12 @@ import datetime
 import gi
 gi.require_version('Notify', '0.7')
 from gi.repository import Gtk, Adw, GLib, Gio, GObject, Notify
-import settings
-import api
-from location_dialog import LocationDialog
-import i18n
-from preferences_window import PreferencesWindow
+from prayer_time import settings
+from prayer_time import api
+from prayer_time.ui.location_dialog import LocationDialog
+from prayer_time import i18n
+from prayer_time.ui.preferences_window import PreferencesWindow
+
 
 class PrayerWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):

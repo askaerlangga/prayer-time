@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys
-from app import PrayerApplication
+from prayer_time.app import PrayerApplication
 
 def main():
     app = PrayerApplication()
@@ -8,3 +8,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+

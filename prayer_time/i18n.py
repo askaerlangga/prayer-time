@@ -1,4 +1,5 @@
-import settings
+from prayer_time import settings
+
 
 STRINGS = {
     "id": {
