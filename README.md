@@ -1,4 +1,4 @@
-# Waktu Salat
+# Prayer Time
 
 A desktop prayer times app for Linux built using GTK 4 and Libadwaita. It runs in the background, displays prayer timetables, and alerts you when it is time to pray.
 
@@ -22,7 +22,7 @@ A desktop prayer times app for Linux built using GTK 4 and Libadwaita. It runs i
 
 ## Requirements
 
-### Ubuntu / Debian / Pop!_OS
+### Debian / Ubuntu-based distributions
 ```bash
 sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-ayatanaappindicator3-0.1 libcanberra-gtk-module libcanberra-gtk3-module
 pip3 install requests
