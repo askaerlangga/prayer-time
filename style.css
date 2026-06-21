@@ -1,0 +1,70 @@
+/* Custom styling for Prayer Time App */
+
+.countdown-card {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.countdown-card-night {
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.next-prayer-title {
+    font-size: 14px;
+    font-weight: bold;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+
+.countdown-time {
+    font-size: 42px;
+    font-weight: 800;
+    margin: 8px 0;
+    font-family: var(--monospace-font-family), monospace;
+}
+
+.location-label {
+    font-size: 13px;
+    opacity: 0.8;
+}
+
+.date-label {
+    font-size: 13px;
+    opacity: 0.9;
+    font-weight: 500;
+}
+
+/* Row highlighting */
+.active-prayer-row {
+    background-color: alpha(@accent_color, 0.15);
+    border-left: 4px solid @accent_color;
+    font-weight: bold;
+}
+
+.active-prayer-row label {
+    color: @accent_color;
+}
+
+.prayer-time-label {
+    font-family: var(--monospace-font-family), monospace;
+    font-size: 16px;
+}
+
+.prayer-name-label {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.dialog-content {
+    padding: 16px;
+}
