@@ -336,10 +336,21 @@ def main():
     Gtk.main()
 
 def on_show_clicked(widget):
-    import subprocess
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    main_path = os.path.join(script_dir, "main.py")
-    subprocess.Popen(["python3", main_path])
+    try:
+        connection = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        connection.call_sync(
+            "com.github.aska.PrayerTime",
+            "/com/github/aska/PrayerTime",
+            "org.gtk.Application",
+            "Activate",
+            GLib.Variant("(a{sv})", ({},)),
+            None,
+            Gio.DBusCallFlags.NONE,
+            -1,
+            None,
+        )
+    except Exception as e:
+        print(f"Failed to activate application via D-Bus: {e}")
 
 def on_exit_clicked(parent_pid):
     import signal
