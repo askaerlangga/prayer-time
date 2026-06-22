@@ -6,6 +6,7 @@ from prayer_time import settings
 from prayer_time import api
 from prayer_time.ui.location_dialog import LocationDialog
 from prayer_time import i18n
+from prayer_time import __version__
 from prayer_time.ui.preferences_window import PreferencesWindow
 
 
@@ -549,7 +550,7 @@ class PrayerWindow(Adw.ApplicationWindow):
             transient_for=self,
             application_name=i18n.get_string("app_title", lang),
             application_icon="alarm-symbolic",
-            version="1.1.0",
+            version=__version__,
             copyright="© 2026 Aska Erlangga",
             license_type=Gtk.License.GPL_3_0,
             developer_name="Aska Erlangga",
