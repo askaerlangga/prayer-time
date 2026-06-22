@@ -1,8 +1,8 @@
+# Prayer Time
+
 <p align="center">
   <img src="data/icons/icon.svg" width="128" height="128" alt="Prayer Time Icon">
 </p>
-
-# Prayer Time
 
 A desktop prayer times app for Linux built using GTK 4 and Libadwaita. It runs in the background, displays prayer timetables, and alerts you when it is time to pray.
 
