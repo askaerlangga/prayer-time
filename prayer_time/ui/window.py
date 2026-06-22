@@ -549,7 +549,7 @@ class PrayerWindow(Adw.ApplicationWindow):
         about = Adw.AboutWindow(
             transient_for=self,
             application_name=i18n.get_string("app_title", lang),
-            application_icon="alarm-symbolic",
+            application_icon="com.github.aska.PrayerTime",
             version=__version__,
             copyright="© 2026 Aska Erlangga",
             license_type=Gtk.License.GPL_3_0,

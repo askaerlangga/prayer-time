@@ -16,11 +16,16 @@ class PrayerApplication(Adw.Application):
 
     def do_startup(self):
         Adw.Application.do_startup(self)
-        
-        # Load CSS stylesheet relative to project root
-        css_provider = Gtk.CssProvider()
+
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(script_dir)
+
+        # Register app icon so it's available to AboutWindow and the shell
+        icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
+        icon_theme.add_search_path(os.path.join(project_root, "data", "icons"))
+
+        # Load CSS stylesheet relative to project root
+        css_provider = Gtk.CssProvider()
         css_path = os.path.join(project_root, "data", "style.css")
         
         if os.path.exists(css_path):
