@@ -68,20 +68,41 @@ def get_setting(key, default=None):
 
 def update_autostart(enable_status):
     autostart_dir = os.path.expanduser("~/.config/autostart")
-    autostart_file = os.path.join(autostart_dir, "prayer-time.desktop")
+    autostart_file = os.path.join(autostart_dir, "com.github.aska.PrayerTime.desktop")
+    old_autostart_file = os.path.join(autostart_dir, "prayer-time.desktop")
+
+    # Clean up old filename if it exists
+    if os.path.exists(old_autostart_file):
+        try:
+            os.remove(old_autostart_file)
+            print("Old autostart file removed successfully")
+        except Exception as e:
+            print(f"Error removing old autostart file: {e}")
+
     if enable_status:
         try:
+            # Ensure the directory exists
+            os.makedirs(autostart_dir, exist_ok=True)
+            
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            main_path = os.path.join(os.path.dirname(script_dir), "main.py")
+            if script_dir.startswith("/usr/"):
+                exec_cmd = "prayer-time"
+            else:
+                main_path = os.path.join(os.path.dirname(script_dir), "main.py")
+                exec_cmd = f"python3 {main_path}"
+                
             content = f"""[Desktop Entry]
 Type=Application
-Exec=python3 {main_path}
+Exec={exec_cmd}
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
-Name=Waktu Salat
-Comment=Aplikasi Pengingat Waktu Salat
-Icon=alarm-symbolic
+Name=Prayer Times
+Name[id]=Waktu Salat
+Comment=Desktop prayer times reminder
+Comment[id]=Pengingat waktu salat desktop
+Icon=com.github.aska.PrayerTime
+Terminal=false
 """
             with open(autostart_file, "w") as f:
                 f.write(content)
