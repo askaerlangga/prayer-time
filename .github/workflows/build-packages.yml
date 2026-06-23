@@ -272,10 +272,19 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-      - name: Checkout gh-pages branch
+      - name: Checkout repository (default ref/tag)
         uses: actions/checkout@v4
-        with:
-          ref: 'gh-pages'
+
+      - name: Save setup files
+        run: |
+          mkdir -p /tmp/apt-setup
+          cp scripts/generate_apt_repo.py /tmp/apt-setup/
+          cp data/apt/key.gpg /tmp/apt-setup/ || true
+
+      - name: Switch to gh-pages branch
+        run: |
+          git fetch origin gh-pages
+          git checkout gh-pages
 
       - name: Download built .deb package
         uses: actions/download-artifact@v4
@@ -283,20 +292,17 @@ jobs:
           name: prayer-time-deb
           path: temp-debs
 
-      - name: Copy script from main branch
-        run: |
-          git show origin/main:scripts/generate_apt_repo.py > generate_apt_repo.py
-          git show origin/main:data/apt/key.gpg > apt/key.gpg || true
-
       - name: Prepare APT structures
         run: |
           mkdir -p apt
+          # Copy the GPG public key
+          cp /tmp/apt-setup/key.gpg apt/key.gpg || true
           # Copy the new .deb to apt/ folder
           cp temp-debs/prayer-time_*.deb apt/
           # Run the flat repository generator
-          python3 generate_apt_repo.py apt
+          python3 /tmp/apt-setup/generate_apt_repo.py apt
           # Clean up temporary files
-          rm -rf temp-debs generate_apt_repo.py
+          rm -rf temp-debs
 
       - name: Import GPG Key and Sign Repositories
         uses: crazy-max/ghaction-import-gpg@v6
