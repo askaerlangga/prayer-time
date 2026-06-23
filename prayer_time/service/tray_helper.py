@@ -211,7 +211,14 @@ def update_timer():
     
     lang = settings.get("language", "id")
     
-    # 1. Check if a prayer has just entered and we are in the iqamah window
+    # 1. First check if the countdown to the next prayer has finished.
+    # This ensures we transition and recalculate the next prayer immediately.
+    if next_prayer_time:
+        diff = next_prayer_time - now
+        if diff.total_seconds() <= 0:
+            recalculate_next_prayer()
+    
+    # 2. Check if a prayer has just entered and we are in the iqamah window
     iqamah_active = None
     if today_timings:
         iqamah_active = get_current_iqamah_prayer(today_timings, now)
@@ -236,7 +243,7 @@ def update_timer():
             
         return True
         
-    # 2. Otherwise, display the countdown to the next prayer
+    # 3. Otherwise, display the countdown to the next prayer
     if not next_prayer_time:
         loading_text = i18n.get_string("tray_loading", lang)
         indicator.set_label(loading_text, "00:00:00")
@@ -246,11 +253,6 @@ def update_timer():
         
     diff = next_prayer_time - now
     
-    # Countdown finished, recalculate on next tick
-    if diff.total_seconds() <= 0:
-        next_prayer_time = None
-        return True
-        
     # Format diff
     seconds = int(diff.total_seconds())
     hours = seconds // 3600

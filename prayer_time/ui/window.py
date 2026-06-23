@@ -416,7 +416,16 @@ class PrayerWindow(Adw.ApplicationWindow):
     def update_tick(self):
         now = datetime.datetime.now()
         
-        # 1. Check if we are in the 15-minute iqamah count-up window
+        # 1. First check if the countdown to the next prayer has finished.
+        # This ensures we trigger the notification exactly when the next prayer starts,
+        # and load the next prayer data before updating the UI to iqamah mode.
+        if self.next_prayer_time:
+            diff = self.next_prayer_time - now
+            if diff.total_seconds() <= 0:
+                self.trigger_prayer_notification()
+                self.load_data()
+        
+        # 2. Check if we are in the iqamah count-up window
         if self.today_timings:
             iqamah_active = self.get_current_iqamah_prayer(self.today_timings)
             if iqamah_active:
@@ -441,21 +450,12 @@ class PrayerWindow(Adw.ApplicationWindow):
                     
                 return True
                 
-        # 2. Otherwise, normal countdown to the next prayer
+        # 3. Otherwise, normal countdown to the next prayer
         if not self.next_prayer_time:
             return True
             
         diff = self.next_prayer_time - now
         
-        # Countdown completed
-        if diff.total_seconds() <= 0:
-            # Trigger notification
-            self.trigger_prayer_notification()
-            
-            # Recalculate
-            self.load_data()
-            return True
-            
         # Format countdown
         seconds = int(diff.total_seconds())
         hours = seconds // 3600
