@@ -24,9 +24,38 @@ A desktop prayer times app for Linux built using GTK 4 and Libadwaita. It runs i
 - **English**
 - **Indonesian**
 
-## Requirements
+## Installation & Setup
 
-### Debian / Ubuntu-based distributions
+### Debian / Ubuntu (via APT Repository)
+
+To get automatic updates, add the official APT repository:
+
+```bash
+# 1. Add the repository GPG key
+sudo wget -O- https://askaerlangga.github.io/prayer-time/apt/key.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/prayer-time-archive-keyring.gpg > /dev/null
+
+# 2. Add the APT repository
+echo "deb [signed-by=/usr/share/keyrings/prayer-time-archive-keyring.gpg] https://askaerlangga.github.io/prayer-time/apt/ ./" | sudo tee /etc/apt/sources.list.d/prayer-time.list
+
+# 3. Update and install the application
+sudo apt update && sudo apt install prayer-time
+```
+
+### Manual Installation (Debian / Ubuntu)
+
+Download the latest `.deb` package from the [Releases](https://github.com/askaerlangga/prayer-time/releases) page and run:
+
+```bash
+sudo apt install ./prayer-time_*.deb
+```
+
+---
+
+## Development Setup
+
+If you want to run the application from source, install the following dependencies:
+
+### Debian / Ubuntu
 ```bash
 sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-ayatanaappindicator3-0.1 libcanberra-gtk-module libcanberra-gtk3-module
 pip3 install requests
@@ -38,7 +67,7 @@ sudo dnf install python3 python3-gobject gtk4 libadwaita libayatana-appindicator
 pip3 install requests
 ```
 
-## Running the App
+### Running the App from source
 
 ```bash
 python3 main.py
