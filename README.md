@@ -32,7 +32,7 @@ To get automatic updates, add the official APT repository:
 
 ```bash
 # 1. Add the repository GPG key
-sudo wget -O- https://askaerlangga.github.io/prayer-time/apt/key.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/prayer-time-archive-keyring.gpg > /dev/null
+wget -qO- https://askaerlangga.github.io/prayer-time/apt/key.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/prayer-time-archive-keyring.gpg > /dev/null
 
 # 2. Add the APT repository
 echo "deb [signed-by=/usr/share/keyrings/prayer-time-archive-keyring.gpg] https://askaerlangga.github.io/prayer-time/apt/ ./" | sudo tee /etc/apt/sources.list.d/prayer-time.list
