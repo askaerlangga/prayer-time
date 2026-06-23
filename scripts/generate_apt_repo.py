@@ -53,8 +53,11 @@ def generate_packages_file(repo_dir):
     subprocess.run(['gzip', '-k', '-f', packages_path], check=True)
 
 def generate_release_file(repo_dir):
-    import email.utils
-    date_str = email.utils.formatdate(dateval=None, localtime=False, usegmt=True)
+    import time
+    t = time.gmtime()
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    date_str = f"{days[t.tm_wday]}, {t.tm_mday:02d} {months[t.tm_mon - 1]} {t.tm_year:d} {t.tm_hour:02d}:{t.tm_min:02d}:{t.tm_sec:02d} +0000"
     release_info = [
         "Origin: Prayer Time Repository",
         "Label: Prayer Time",
