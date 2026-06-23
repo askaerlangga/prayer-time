@@ -1,0 +1,35 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: Prayer Time Repository
+Label: Prayer Time
+Suite: stable
+Codename: stable
+Architectures: all
+Components: main
+Description: APT Repository for Desktop Prayer Times App
+MD5Sum:
+ 43c4141657d12ffa1cdb95261dc83bf3 956 Packages
+ 9b93ddc1c8a4f9a76dacae68c0cd5ddd 626 Packages.gz
+SHA1:
+ 3b436f4b8726dbde945bab5a57782e1ea8d212d0 956 Packages
+ b5d0ced1bd62a3c9bd8a0fc645e88d536555b9a5 626 Packages.gz
+SHA256:
+ fd1ac927646fc0585ae1149d7080e08e10c3b553e985eb9bd4ff85614a2030d3 956 Packages
+ 397e7ee3d3ec50b914ada65f419029c49a78df0664157e3a575048c7c564f0e6 626 Packages.gz
+-----BEGIN PGP SIGNATURE-----
+
+iQIyBAEBCgAdFiEE7pGquHyVAApaUfgt2Go67CcALzsFAmo6UMEACgkQ2Go67CcA
+LzuIRQ/3UqEgB+2dtOJoXwCO1rrL8i4Z+MIwWxTfMk+4Xv3ll3JinruVAJxj4oAM
+ncGgy5JY+heV3Wt8YF9Mxs4EMlN84V4EovnSg6k2pv79W75CWsPr8rNHu/oAOh5F
+Uwc5Qg38UvKDTFyDAY44OAYrQAOnYKKHb//++Pp6C7TxH46ihqElZ6kYoIOt4pWN
+bYKMnBhXr3rap3n2h4q6RxX2HdLTtPn4H31eOqU840awqs8JPXsHRBnxoGyxCUEf
+OZ+TuQCtkPktDD+ctcNwUfm4cDwppg2CMHt/AzZz9QkagdBp4zj7u4yd4g6okubN
+/4JDA5iOpDNs3T8s/Mt0JtVcBLmfUB4A9kJ2ZDUHMUNOthpFCgl1VInF+KpJa6wn
+HfsU3nrjLxv0V+P++07Zd8dh4vIU0+ywAVsXnMKhzK/CmqgORtQkKQDncLwP9fG9
+1Hi5C1iSRX/W/ce17yzmhbwWNkirXmVVTYR8zR24kwvgIUjYEW5AGAJ2St0Fl+hq
+lRyQb+sxs1F9EE8BVIcn/yxM/2fX+9rcmVO+46U4PzvzoToIaWfl6HswUknOCegd
+lz0jcn1yxu94OcokpWe7Db1nr3I/HDQu5jhpayAFL7DCw+Smqh4xAHdfbGVAZ8iu
+D10CUekYFBCMPdo3k2TrEuQZTe4D0u8BY2LriHxt+EVwmig3Wg==
+=ZG6r
+-----END PGP SIGNATURE-----
