@@ -53,11 +53,14 @@ def generate_packages_file(repo_dir):
     subprocess.run(['gzip', '-k', '-f', packages_path], check=True)
 
 def generate_release_file(repo_dir):
+    import email.utils
+    date_str = email.utils.formatdate(dateval=None, localtime=False, usegmt=True)
     release_info = [
         "Origin: Prayer Time Repository",
         "Label: Prayer Time",
         "Suite: stable",
         "Codename: stable",
+        "Date: " + date_str,
         "Architectures: all",
         "Components: main",
         "Description: APT Repository for Desktop Prayer Times App",
