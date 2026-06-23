@@ -106,7 +106,7 @@ Terminal=false
 """
             with open(autostart_file, "w") as f:
                 f.write(content)
-            os.chmod(autostart_file, 0o755)
+            os.chmod(autostart_file, 0o644)
             print("Autostart entry created successfully")
         except Exception as e:
             print(f"Error writing autostart file: {e}")
