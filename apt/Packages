@@ -20,3 +20,26 @@ Size: 78306
 MD5sum: 3c46d1632958ac418e062ad076cc0329
 SHA1: 9aff74b59e80a48e03833e238ab3049c8f94d9f7
 SHA256: 579cbf9044b78ac3bfb4f41af7d988433cf9e78520a547284abb67dd24da5093
+
+Package: prayer-time
+Version: 1.1.3
+Architecture: all
+Maintainer: Aska Erlangga
+Depends: python3, python3-gi, python3-requests, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-ayatanaappindicator3-0.1
+Recommends: libcanberra-gtk-module, libcanberra-gtk3-module
+Section: utils
+Priority: optional
+Homepage: https://github.com/askaerlangga/prayer-time
+Description: Desktop Prayer Times App
+ A desktop prayer times application for Linux built using GTK 4 and
+ Libadwaita. It runs in the background, displays prayer timetables,
+ and alerts you when it is time to pray.
+ .
+ Features prayer times from Aladhan API and Kemenag (MyQuran ID),
+ system tray indicator with countdown, desktop notifications,
+ bilingual support (Indonesian/English), and autostart option.
+Filename: prayer-time_1.1.3_all.deb
+Size: 78474
+MD5sum: 6fd117ed27aaecd6263d7d9c631007e8
+SHA1: e0c39ea7adb920a721017342c9a3e4e1f62174d5
+SHA256: 70409576a9c7794abecedf8c4d2f8f3efbb6b3b14a839dd8dd47cf0e50b8903b
