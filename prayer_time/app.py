@@ -3,16 +3,37 @@ import subprocess
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Gdk, Gio
+from gi.repository import Gtk, Adw, Gdk, Gio, GLib
 from prayer_time.ui.window import PrayerWindow
 
 class PrayerApplication(Adw.Application):
     def __init__(self):
         super().__init__(
             application_id="com.github.aska.PrayerTime",
-            flags=Gio.ApplicationFlags.DEFAULT_FLAGS
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE
         )
         self.tray_process = None
+        self.add_main_option(
+            "background",
+            0,
+            GLib.OptionFlags.NONE,
+            GLib.OptionArg.NONE,
+            "Start in background (no window)",
+            None
+        )
+
+    def do_command_line(self, command_line):
+        options = command_line.get_options_dict()
+        if options.contains("background"):
+            self.hold()
+            self._ensure_startup()
+            return 0
+        self.activate()
+        return 0
+
+    def _ensure_startup(self):
+        if not self.props.active_window:
+            PrayerWindow(application=self)
 
     def do_startup(self):
         Adw.Application.do_startup(self)

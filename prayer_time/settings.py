@@ -86,10 +86,10 @@ def update_autostart(enable_status):
             
             script_dir = os.path.dirname(os.path.abspath(__file__))
             if script_dir.startswith("/usr/"):
-                exec_cmd = "prayer-time"
+                exec_cmd = "prayer-time --background"
             else:
                 main_path = os.path.join(os.path.dirname(script_dir), "main.py")
-                exec_cmd = f"python3 {main_path}"
+                exec_cmd = f"python3 {main_path} --background"
                 
             content = f"""[Desktop Entry]
 Type=Application
