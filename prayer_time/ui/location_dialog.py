@@ -4,9 +4,19 @@ from prayer_time import settings
 from prayer_time import i18n
 
 
-class LocationDialog(Adw.Dialog):
+# Base class compatibility for Libadwaita < 1.5
+DialogBase = Adw.Dialog if hasattr(Adw, "Dialog") else Adw.Window
+
+class LocationDialog(DialogBase):
     def __init__(self, parent_window, on_location_selected):
-        super().__init__()
+        if DialogBase == Adw.Window:
+            super().__init__(transient_for=parent_window, modal=True)
+            self.set_default_size(450, 400)
+        else:
+            super().__init__()
+            self.set_content_width(450)
+            self.set_content_height(400)
+            
         self.parent_window = parent_window
         self.on_location_selected = on_location_selected
         
@@ -15,8 +25,6 @@ class LocationDialog(Adw.Dialog):
         
         lang = settings.get_setting("language", "id")
         self.set_title(i18n.get_string("loading_dialog_title", lang))
-        self.set_content_width(450)
-        self.set_content_height(400)
         
         # Main layout
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -41,7 +49,7 @@ class LocationDialog(Adw.Dialog):
         # Results container
         self.results_list = Gtk.ListBox()
         self.results_list.add_css_class("boxed-list")
-        self.results_list.set_activate_on_single_click(False)  # Require double-click to activate
+        self.results_list.set_activate_on_single_click(True)  # Single-click to activate (GNOME HIG)
         self.results_list.connect("row-activated", self.on_row_activated)
         
         # Scroll area for results
@@ -50,7 +58,15 @@ class LocationDialog(Adw.Dialog):
         scrolled.set_child(self.results_list)
         vbox.append(scrolled)
         
-        self.set_child(vbox)
+        if DialogBase == Adw.Window:
+            # Header bar for Adw.Window fallback
+            header = Adw.HeaderBar()
+            outer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            outer_box.append(header)
+            outer_box.append(vbox)
+            self.set_content(outer_box)
+        else:
+            self.set_child(vbox)
 
     def on_search_changed(self, entry):
         # Cancel any pending search timeout to debounce requests
@@ -152,4 +168,7 @@ class LocationDialog(Adw.Dialog):
         if 0 <= index < len(self.search_results):
             selected_data = self.search_results[index]
             self.on_location_selected(selected_data)
-            self.close()
+            if hasattr(self, "close"):
+                self.close()
+            elif hasattr(self, "destroy"):
+                self.destroy()

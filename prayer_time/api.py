@@ -2,6 +2,7 @@ import threading
 import datetime
 import requests
 from gi.repository import GLib
+from prayer_time import __version__
 
 def fetch_prayer_times_async(latitude, longitude, method, month, year, myquran_id, callback):
     """
@@ -20,7 +21,8 @@ def fetch_prayer_times_async(latitude, longitude, method, month, year, myquran_i
                 "month": month,
                 "year": year
             }
-            r = requests.get(aladhan_url, params=aladhan_params, timeout=10)
+            headers = {"User-Agent": f"PrayerTime/{__version__} (https://github.com/askaerlangga/prayer-time)"}
+            r = requests.get(aladhan_url, params=aladhan_params, headers=headers, timeout=10)
             if r.status_code != 200:
                 GLib.idle_add(callback, None, f"Aladhan API Error: Status {r.status_code}")
                 return
@@ -31,7 +33,7 @@ def fetch_prayer_times_async(latitude, longitude, method, month, year, myquran_i
             if myquran_id:
                 try:
                     myquran_url = f"https://api.myquran.com/v2/sholat/jadwal/{myquran_id}/{year}/{month:02d}"
-                    rq = requests.get(myquran_url, timeout=10)
+                    rq = requests.get(myquran_url, headers=headers, timeout=10)
                     if rq.status_code == 200:
                         res = rq.json()
                         if res.get("status"):
@@ -74,7 +76,7 @@ def search_location_async(query, callback):
     def run():
         try:
             url = "https://nominatim.openstreetmap.org/search"
-            headers = {"User-Agent": "PrayerTimeApp/1.0"}
+            headers = {"User-Agent": f"PrayerTime/{__version__} (https://github.com/askaerlangga/prayer-time)"}
             params = {
                 "q": query,
                 "format": "json",
@@ -143,8 +145,14 @@ def get_myquran_id_async(location_data, callback):
                 candidates = [city_name]
                 
             is_kab_hint = any(x in city_name.upper() for x in ["KAB", "KABUPATEN", "REGENCY"])
+            headers = {"User-Agent": f"PrayerTime/{__version__} (https://github.com/askaerlangga/prayer-time)"}
             
-            for name in candidates:
+            queries_tried = 0
+            max_queries = 4
+            
+            for name in candidates[:4]:
+                if queries_tried >= max_queries:
+                    break
                 # Clean name
                 clean_name = "".join(c for c in name if c.isalnum() or c.isspace())
                 words = clean_name.upper().split()
@@ -161,12 +169,15 @@ def get_myquran_id_async(location_data, callback):
                 is_kab = is_kab_hint or any(x in name.upper() for x in ["KAB", "KABUPATEN", "REGENCY", "COUNTY"])
                 
                 for kw in keywords:
+                    if queries_tried >= max_queries:
+                        break
                     # Ignore trivial keywords like directionals to avoid false positives
                     if kw.upper() in {"UTARA", "SELATAN", "TIMUR", "BARAT", "PUSAT"}:
                         continue
                         
+                    queries_tried += 1
                     url = f"https://api.myquran.com/v2/sholat/kota/cari/{kw}"
-                    r = requests.get(url, timeout=5)
+                    r = requests.get(url, headers=headers, timeout=5)
                     if r.status_code == 200:
                         res = r.json()
                         if res.get("status") and res.get("data"):

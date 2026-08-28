@@ -22,6 +22,8 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.next_prayer_time = None
         self.last_notified_prayer = None
         self.timer_id = None
+        self.current_day_str = ""
+        self.is_loading = False
         
         # Header Bar & Window Title
         self.header_bar = Adw.HeaderBar()
@@ -192,8 +194,13 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.set_visible(False)
         return True  # Prevent the default close handler from destroying the window
 
-    def load_data(self):
-        self.stack.set_visible_child_name("loading")
+    def load_data(self, silent=False):
+        if self.is_loading:
+            return
+            
+        self.is_loading = True
+        if not silent or not self.prayer_data:
+            self.stack.set_visible_child_name("loading")
         
         # Read settings
         city = settings.get_setting("city")
@@ -220,6 +227,7 @@ class PrayerWindow(Adw.ApplicationWindow):
             api.fetch_prayer_times_async(lat, lon, method, month, year, myquran_id, self.on_data_loaded)
 
     def on_data_loaded(self, data, error):
+        self.is_loading = False
         if error:
             print(f"Error loading prayer data: {error}")
             # If we don't have any data on screen, show error page
@@ -253,11 +261,12 @@ class PrayerWindow(Adw.ApplicationWindow):
                 break
                 
         if not today_data:
-            # Data for today not found in cache (e.g. month changed)
-            # Re-fetch online
-            self.load_data()
+            # Data for today not found in current dataset (e.g. new month started)
+            # Re-fetch without flashing if possible
+            self.load_data(silent=True)
             return
             
+        self.current_day_str = today_str
         timings = today_data['timings']
         self.today_timings = timings
         hijri = today_data['date']['hijri']
@@ -345,7 +354,8 @@ class PrayerWindow(Adw.ApplicationWindow):
         if iqamah_active:
             api_name, p_dt = iqamah_active
             translated_name = i18n.get_prayer_name(api_name)
-            self.lbl_next_prayer.set_label(f"{i18n.get_string('prayer_time_active')}: {translated_name}")
+            prefix = i18n.get_string("sunrise_active") if api_name == "Sunrise" else f"{i18n.get_string('prayer_time_active')}: {translated_name}"
+            self.lbl_next_prayer.set_label(prefix)
             self.highlight_active_row(api_name)
             
             is_night = (api_name in ["Fajr", "Maghrib", "Isha"])
@@ -416,14 +426,19 @@ class PrayerWindow(Adw.ApplicationWindow):
     def update_tick(self):
         now = datetime.datetime.now()
         
+        # 0. Check day rollover (e.g. midnight 00:00)
+        day_str = now.strftime("%d-%m-%Y")
+        if self.current_day_str and day_str != self.current_day_str:
+            self.current_day_str = day_str
+            self.update_ui()
+        
         # 1. First check if the countdown to the next prayer has finished.
-        # This ensures we trigger the notification exactly when the next prayer starts,
-        # and load the next prayer data before updating the UI to iqamah mode.
         if self.next_prayer_time:
             diff = self.next_prayer_time - now
             if diff.total_seconds() <= 0:
                 self.trigger_prayer_notification()
-                self.load_data()
+                if self.today_timings:
+                    self.recalculate_next_prayer(self.today_timings)
         
         # 2. Check if we are in the iqamah count-up window
         if self.today_timings:
@@ -436,7 +451,8 @@ class PrayerWindow(Adw.ApplicationWindow):
                 secs = seconds % 60
                 
                 translated_name = i18n.get_prayer_name(api_name)
-                self.lbl_next_prayer.set_label(f"{i18n.get_string('prayer_time_active')}: {translated_name}")
+                prefix = i18n.get_string("sunrise_active") if api_name == "Sunrise" else f"{i18n.get_string('prayer_time_active')}: {translated_name}"
+                self.lbl_next_prayer.set_label(prefix)
                 self.lbl_countdown.set_label(f"+{minutes:02d}:{secs:02d}")
                 self.highlight_active_row(api_name)
                 
@@ -475,9 +491,14 @@ class PrayerWindow(Adw.ApplicationWindow):
         try:
             time_str = self.next_prayer_time.strftime("%H:%M")
             lang = settings.get_setting("language", "id")
-            title = i18n.get_string("notif_title", lang)
-            prayer_name = i18n.get_prayer_name(self.next_prayer_api_name, lang)
-            body = i18n.get_string("notif_body", lang).format(prayer_name, time_str)
+            
+            if self.next_prayer_api_name == "Sunrise":
+                title = i18n.get_string("notif_sunrise_title", lang)
+                body = i18n.get_string("notif_sunrise_body", lang).format(time_str)
+            else:
+                title = i18n.get_string("notif_title", lang)
+                prayer_name = i18n.get_prayer_name(self.next_prayer_api_name, lang)
+                body = i18n.get_string("notif_body", lang).format(prayer_name, time_str)
             
             notification = Notify.Notification.new(
                 title,
@@ -486,7 +507,7 @@ class PrayerWindow(Adw.ApplicationWindow):
             )
             notification.set_urgency(Notify.Urgency.NORMAL)
             notification.show()
-            print(f"Sent notification for {prayer_name} at {time_str}")
+            print(f"Sent notification for {self.next_prayer_api_name} at {time_str}")
         except Exception as e:
             print(f"Error sending notification via libnotify: {e}")
             
@@ -500,7 +521,11 @@ class PrayerWindow(Adw.ApplicationWindow):
 
     def on_search_clicked(self, btn):
         dialog = LocationDialog(self, self.on_location_selected)
-        dialog.present(self)
+        if hasattr(dialog, "present"):
+            try:
+                dialog.present(self)
+            except TypeError:
+                dialog.present()
         
     def on_location_selected(self, location_data):
         print(f"Location selected: {location_data['city']}, {location_data['country']}")

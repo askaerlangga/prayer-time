@@ -11,10 +11,11 @@ from gi.repository import AyatanaAppIndicator3 as appindicator
 # Add parent directory of 'prayer_time' package to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from prayer_time import i18n
+from prayer_time import settings as app_settings
 
 
 # Paths
-SETTINGS_PATH = os.path.expanduser("~/.config/prayer-time/settings.json")
+SETTINGS_PATH = app_settings.CONFIG_FILE
 
 # Post-adhan (iqamah) window length in minutes
 POST_PRAYER_WINDOW_MINUTES = 15
@@ -44,13 +45,7 @@ PRAYER_ICONS = {
 }
 
 def load_settings():
-    if os.path.exists(SETTINGS_PATH):
-        try:
-            with open(SETTINGS_PATH, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading settings in tray helper: {e}")
-    return {}
+    return app_settings.load_settings()
 
 def parse_time(time_str):
     # HH:MM
@@ -66,7 +61,7 @@ def recalculate_next_prayer():
     today_timings = None
     
     if not settings:
-        return
+        settings = load_settings()
         
     city = settings.get("city", "Jakarta")
     cache = settings.get("cache", {})
@@ -76,12 +71,17 @@ def recalculate_next_prayer():
     year = now.year
     
     # Get cache key matching settings.py key normalization
-    normalized_city = "".join(c.lower() for c in city if c.isalnum())
-    cache_key = f"{normalized_city}_{month:02d}_{year}"
+    cache_key = app_settings.get_cache_key(city, month, year)
     
     data = cache.get(cache_key)
     if not data:
-        return
+        # Fallback: check if any cache data exists in settings
+        if cache:
+            # Try any available dataset as fallback to keep tray alive
+            first_key = list(cache.keys())[0]
+            data = cache.get(first_key)
+        if not data:
+            return
         
     today_str = now.strftime("%d-%m-%Y")
     tomorrow_str = (now + datetime.timedelta(days=1)).strftime("%d-%m-%Y")
@@ -96,6 +96,10 @@ def recalculate_next_prayer():
         elif g_date == tomorrow_str:
             tomorrow_data = day
             
+    if not today_data:
+        # If today's exact date is not in this month's dataset, use first day as fallback timings
+        today_data = data[0] if data else None
+        
     if not today_data:
         return
         
@@ -182,8 +186,12 @@ def get_current_iqamah_prayer(timings, now):
 
 def on_settings_changed(monitor, file, other_file, event_type):
     global settings
-    # CHANGES_DONE_HINT triggers when file has finished writing and was closed
-    if event_type == Gio.FileMonitorEvent.CHANGES_DONE_HINT:
+    # Handles CHANGES_DONE_HINT, CHANGED, and CREATED (to work with atomic file replace)
+    if event_type in (
+        Gio.FileMonitorEvent.CHANGES_DONE_HINT,
+        Gio.FileMonitorEvent.CHANGED,
+        Gio.FileMonitorEvent.CREATED
+    ):
         print("Settings file updated, reloading...")
         settings = load_settings()
         recalculate_next_prayer()

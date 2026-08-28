@@ -105,3 +105,5 @@ venv.bak/
 # Project-specific caches or local configs
 settings.json
 *.cache
+.skill-archive/
+

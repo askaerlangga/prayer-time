@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import gi
 gi.require_version('Gtk', '4.0')
@@ -32,7 +33,8 @@ class PrayerApplication(Adw.Application):
         return 0
 
     def _ensure_startup(self):
-        if not self.props.active_window:
+        windows = self.get_windows()
+        if not windows:
             PrayerWindow(application=self)
 
     def do_startup(self):
@@ -68,7 +70,7 @@ class PrayerApplication(Adw.Application):
             helper_path = os.path.join(script_dir, "service", "tray_helper.py")
             if os.path.exists(helper_path):
                 self.tray_process = subprocess.Popen(
-                    ["python3", helper_path, str(os.getpid())],
+                    [sys.executable, helper_path, str(os.getpid())],
                     start_new_session=True,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
@@ -78,9 +80,8 @@ class PrayerApplication(Adw.Application):
             print(f"Failed to launch tray helper: {e}")
 
     def do_activate(self):
-        win = self.props.active_window
-        if not win:
-            win = PrayerWindow(application=self)
+        windows = self.get_windows()
+        win = windows[0] if windows else PrayerWindow(application=self)
         win.present()
 
     def do_shutdown(self):

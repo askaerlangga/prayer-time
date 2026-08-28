@@ -1,5 +1,7 @@
 import os
+import sys
 import json
+import tempfile
 
 CONFIG_DIR = os.path.expanduser("~/.config/prayer-time")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
@@ -26,8 +28,7 @@ def init_config():
     if not os.path.exists(CONFIG_DIR):
         try:
             # Create config directory with 0700 permissions (owner read/write/execute only)
-            os.makedirs(CONFIG_DIR, mode=0o700)
-            # Explicitly enforce in case umask relaxed it
+            os.makedirs(CONFIG_DIR, mode=0o700, exist_ok=True)
             os.chmod(CONFIG_DIR, 0o700)
         except Exception as e:
             print(f"Error creating config directory: {e}")
@@ -52,15 +53,24 @@ def load_settings():
 
 def save_settings(settings):
     init_config()
+    tmp_path = None
     try:
-        # Secure file creation with 0600 permissions (owner read/write only)
-        # to avoid race conditions during file creation.
-        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        fd = os.open(CONFIG_FILE, flags, 0o600)
-        with open(fd, "w") as f:
+        # Atomic write: write to temp file in same directory and replace
+        # This prevents partial/corrupted settings on abrupt termination.
+        fd, tmp_path = tempfile.mkstemp(dir=CONFIG_DIR, prefix="settings_", suffix=".tmp")
+        os.chmod(tmp_path, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(settings, f, indent=4)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, CONFIG_FILE)
     except Exception as e:
         print(f"Error saving settings: {e}")
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 def get_setting(key, default=None):
     settings = load_settings()
@@ -89,7 +99,7 @@ def update_autostart(enable_status):
                 exec_cmd = "prayer-time --background"
             else:
                 main_path = os.path.join(os.path.dirname(script_dir), "main.py")
-                exec_cmd = f"python3 {main_path} --background"
+                exec_cmd = f'"{sys.executable}" "{main_path}" --background'
                 
             content = f"""[Desktop Entry]
 Type=Application

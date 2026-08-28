@@ -57,13 +57,13 @@ If you want to run the application from source, install the following dependenci
 
 ### Debian / Ubuntu
 ```bash
-sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-ayatanaappindicator3-0.1 libcanberra-gtk-module libcanberra-gtk3-module
+sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-notify-0.7 gir1.2-ayatanaappindicator3-0.1 libcanberra-gtk-module libcanberra-gtk3-module
 pip3 install requests
 ```
 
 ### Fedora / RHEL
 ```bash
-sudo dnf install python3 python3-gobject gtk4 libadwaita libayatana-appindicator-gtk3
+sudo dnf install python3 python3-gobject gtk4 libadwaita libnotify libayatana-appindicator-gtk3
 pip3 install requests
 ```
 
