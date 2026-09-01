@@ -1,0 +1,15 @@
+{
+  "uuid": "prayer-time-clock@askaerlangga.github.io",
+  "name": "Prayer Time Clock Indicator",
+  "description": "Displays prayer time countdown and Iqamah indicator integrated into the GNOME Shell top bar clock.",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50"
+  ],
+  "url": "https://github.com/askaerlangga/prayer-time",
+  "version": 1
+}

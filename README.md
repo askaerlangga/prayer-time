@@ -14,7 +14,7 @@ A desktop prayer times app for Linux built using GTK 4 and Libadwaita. It runs i
 ## Features
 
 - **Prayer Times**: Pulls data from Aladhan API or Kemenag (MyQuran ID) for Indonesia.
-- **System Tray**: System tray indicator (GTK 3) that displays countdowns and Iqamah times.
+- **GNOME Shell Integration**: Seamless top bar clock indicator and calendar dropdown schedule card.
 - **Notis & Audio**: Desktop notifications via libnotify and a chime alert.
 - **Bilingual**: Dynamic switching between Indonesian (KBBI-compliant) and English.
 - **Autostart**: Option to launch automatically on login.
@@ -57,13 +57,13 @@ If you want to run the application from source, install the following dependenci
 
 ### Debian / Ubuntu
 ```bash
-sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-notify-0.7 gir1.2-ayatanaappindicator3-0.1 libcanberra-gtk-module libcanberra-gtk3-module
+sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-notify-0.7 libcanberra-gtk-module libcanberra-gtk3-module
 pip3 install requests
 ```
 
 ### Fedora / RHEL
 ```bash
-sudo dnf install python3 python3-gobject gtk4 libadwaita libnotify libayatana-appindicator-gtk3
+sudo dnf install python3 python3-gobject gtk4 libadwaita libnotify
 pip3 install requests
 ```
 
@@ -73,19 +73,28 @@ pip3 install requests
 python3 main.py
 ```
 
-Closing the main window minimizes the app to the system tray. Use the tray menu to show it again or quit.
+## GNOME Shell Extension (Clock Integration)
+
+To integrate prayer time countdown and calendar schedule card into your GNOME Shell top bar:
+
+```bash
+cd extension
+./install.sh
+```
+
+Restart GNOME Shell (`Alt`+`F2`, type `r` and press Enter on X11, or log out and log back in on Wayland) and enable the extension if needed.
 
 ## Project Structure
 
 - `main.py` - Entry point
 - `data/` - Layout resources (`style.css` and screenshots)
+- `extension/` - GNOME Shell Extension (Clock & Calendar integration)
 - `prayer_time/` - Core application package
   - `app.py` - GTK 4 application class
   - `settings.py` - Config manager (`~/.config/prayer-time/settings.json`)
   - `i18n.py` - Dynamic bilingual dictionary
   - `api.py` - Asynchronous API caller
   - `ui/` - Interface components (Window, Preferences, Location Dialog)
-  - `service/` - Background processes (GTK 3 System Tray Helper)
 
 ## Third-Party Services
 

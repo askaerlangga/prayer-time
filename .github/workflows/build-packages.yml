@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Package version (e.g. 1.1.0)"
+        description: "Package version (e.g. 1.2.0)"
         required: false
 
 permissions:
@@ -44,9 +44,9 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev fakeroot
+          sudo apt-get install -y dpkg-dev fakeroot zip
 
-      - name: Build .deb package
+      - name: Build .deb package and extension zip
         run: |
           VERSION=${{ needs.set-version.outputs.version }}
           PKG=prayer-time_${VERSION}_all
@@ -56,10 +56,19 @@ jobs:
           mkdir -p ${PKG}/usr/bin
           mkdir -p ${PKG}/usr/share/applications
           mkdir -p ${PKG}/usr/share/icons/hicolor/scalable/apps
+          mkdir -p ${PKG}/usr/share/gnome-shell/extensions/prayer-time-clock@askaerlangga.github.io
 
           cp main.py ${PKG}/usr/lib/prayer-time/
           cp -r prayer_time ${PKG}/usr/lib/prayer-time/
           cp -r data ${PKG}/usr/lib/prayer-time/
+
+          # Include GNOME Shell Extension in package
+          cp extension/metadata.json extension/extension.js extension/stylesheet.css ${PKG}/usr/share/gnome-shell/extensions/prayer-time-clock@askaerlangga.github.io/
+
+          # Create standalone extension zip
+          cd extension
+          zip -r ../prayer-time-clock@askaerlangga.github.io.zip metadata.json extension.js stylesheet.css
+          cd ..
 
           cat > ${PKG}/usr/bin/prayer-time << 'EOF'
           #!/bin/sh
@@ -89,7 +98,7 @@ jobs:
           Version: ${VERSION}
           Architecture: all
           Maintainer: Aska Erlangga
-          Depends: python3, python3-gi, python3-requests, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-notify-0.7, gir1.2-ayatanaappindicator3-0.1
+          Depends: python3, python3-gi, python3-requests, gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-notify-0.7
           Recommends: libcanberra-gtk-module, libcanberra-gtk3-module
           Section: utils
           Priority: optional
@@ -100,8 +109,8 @@ jobs:
            and alerts you when it is time to pray.
            .
            Features prayer times from Aladhan API and Kemenag (MyQuran ID),
-           system tray indicator with countdown, desktop notifications,
-           bilingual support (Indonesian/English), and autostart option.
+           desktop notifications, bilingual support (Indonesian/English),
+           autostart option, and built-in GNOME Shell clock integration.
           EOF
 
           cat > ${PKG}/DEBIAN/postinst << 'EOF'
@@ -118,11 +127,18 @@ jobs:
 
           fakeroot dpkg-deb --build ${PKG}
 
-      - name: Upload artifact
+      - name: Upload deb artifact
         uses: actions/upload-artifact@v4
         with:
           name: prayer-time-deb
           path: prayer-time_*.deb
+          retention-days: 30
+
+      - name: Upload extension zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prayer-time-extension-zip
+          path: prayer-time-clock@askaerlangga.github.io.zip
           retention-days: 30
 
   build-rpm:
@@ -148,6 +164,7 @@ jobs:
           cp main.py ~/rpmbuild/SOURCES/prayer-time-${VERSION}/
           cp -r prayer_time ~/rpmbuild/SOURCES/prayer-time-${VERSION}/
           cp -r data ~/rpmbuild/SOURCES/prayer-time-${VERSION}/
+          cp -r extension ~/rpmbuild/SOURCES/prayer-time-${VERSION}/
 
           tar -czf ~/rpmbuild/SOURCES/prayer-time-${VERSION}.tar.gz \
             -C ~/rpmbuild/SOURCES prayer-time-${VERSION}
@@ -168,7 +185,6 @@ jobs:
           Requires:       gtk4
           Requires:       libadwaita
           Requires:       libnotify
-          Requires:       libayatana-appindicator-gtk3
 
           %description
           A desktop prayer times application for Linux built using GTK 4 and
@@ -176,8 +192,8 @@ jobs:
           and alerts you when it is time to pray.
 
           Features prayer times from Aladhan API and Kemenag (MyQuran ID),
-          system tray indicator with countdown, desktop notifications,
-          bilingual support (Indonesian/English), and autostart option.
+          desktop notifications, bilingual support (Indonesian/English),
+          autostart option, and built-in GNOME Shell clock integration.
 
           %prep
           %setup -q
@@ -187,10 +203,12 @@ jobs:
           mkdir -p %{buildroot}/usr/bin
           mkdir -p %{buildroot}/usr/share/applications
           mkdir -p %{buildroot}/usr/share/icons/hicolor/scalable/apps
+          mkdir -p %{buildroot}/usr/share/gnome-shell/extensions/prayer-time-clock@askaerlangga.github.io
 
           cp main.py %{buildroot}/usr/lib/prayer-time/
           cp -r prayer_time %{buildroot}/usr/lib/prayer-time/
           cp -r data %{buildroot}/usr/lib/prayer-time/
+          cp extension/metadata.json extension/extension.js extension/stylesheet.css %{buildroot}/usr/share/gnome-shell/extensions/prayer-time-clock@askaerlangga.github.io/
 
           cat > %{buildroot}/usr/bin/prayer-time << 'LAUNCHER'
           #!/bin/sh
@@ -228,6 +246,7 @@ jobs:
           /usr/bin/prayer-time
           /usr/share/applications/com.github.aska.PrayerTime.desktop
           /usr/share/icons/hicolor/scalable/apps/com.github.aska.PrayerTime.svg
+          /usr/share/gnome-shell/extensions/prayer-time-clock@askaerlangga.github.io/
 
           %changelog
           * $(date "+%a %b %d %Y") Aska Erlangga <aska@erlangga.dev> - ${VERSION}-1
@@ -236,7 +255,7 @@ jobs:
 
           rpmbuild -bb ~/rpmbuild/SPECS/prayer-time.spec
 
-      - name: Upload artifact
+      - name: Upload rpm artifact
         uses: actions/upload-artifact@v4
         with:
           name: prayer-time-rpm
@@ -259,12 +278,18 @@ jobs:
         with:
           name: prayer-time-rpm
 
+      - name: Download extension zip artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prayer-time-extension-zip
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             prayer-time_*.deb
             prayer-time-*.rpm
+            prayer-time-clock@askaerlangga.github.io.zip
           generate_release_notes: true
 
   publish-apt-repo:

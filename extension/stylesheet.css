@@ -1,0 +1,64 @@
+.prayer-unified-clock-box {
+    spacing: 0px !important;
+    padding-left: 14px !important;
+    padding-right: 16px !important;
+}
+
+.prayer-clock-indicator-box {
+    spacing: 6px;
+    margin-left: 8px;
+    margin-right: 0px;
+}
+
+.prayer-clock-indicator-label {
+    font-weight: normal !important;
+    color: inherit;
+}
+
+.prayer-clock-indicator-icon {
+    icon-size: 14px;
+    margin: 0px;
+}
+
+/* Prayer Section in DateMenu Dropdown (Like World Clocks / Weather) */
+.prayer-section-button {
+    margin-top: 6px;
+}
+
+.prayer-section-box {
+    spacing: 6px;
+}
+
+.prayer-section-header-box {
+    spacing: 6px;
+}
+
+.prayer-timings-grid {
+    spacing-rows: 2px;
+    spacing-columns: 8px;
+}
+
+.prayer-item-box {
+    padding: 3px 8px;
+    border-radius: 999px;
+    spacing: 8px;
+}
+
+.prayer-item-capsule {
+    background-color: -st-accent-color;
+}
+
+.prayer-item-capsule .prayer-name-label,
+.prayer-item-capsule .prayer-time-val {
+    color: -st-accent-fg-color !important;
+    font-weight: bold;
+}
+
+.prayer-name-label {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.prayer-time-val {
+    font-size: 0.9em;
+}
