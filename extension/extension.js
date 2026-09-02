@@ -178,10 +178,16 @@ export default class PrayerTimeClockExtension extends Extension {
         this._prayerSection = null;
 
         // Create UI components for top bar clock
-        this._indicatorBox = new St.BoxLayout({
+        this._indicatorBox = new St.Button({
             style_class: 'prayer-clock-indicator-box',
-            reactive: false,
-            can_focus: false,
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+        });
+
+        const innerBox = new St.BoxLayout({
+            style_class: 'prayer-clock-indicator-inner',
+            y_align: Clutter.ActorAlign.CENTER,
         });
 
         this._icon = new St.Icon({
@@ -195,8 +201,16 @@ export default class PrayerTimeClockExtension extends Extension {
             style_class: 'prayer-clock-indicator-label',
         });
 
-        this._indicatorBox.add_child(this._icon);
-        this._indicatorBox.add_child(this._label);
+        innerBox.add_child(this._icon);
+        innerBox.add_child(this._label);
+        this._indicatorBox.child = innerBox;
+
+        this._indicatorBox.connect('clicked', () => {
+            this._openPrayerApp();
+            if (this._dateMenu && this._dateMenu.menu) {
+                this._dateMenu.menu.close();
+            }
+        });
 
         // Insert into GNOME Shell DateMenu top bar pill
         this._attachToDateMenu();
@@ -589,11 +603,23 @@ export default class PrayerTimeClockExtension extends Extension {
             const appInfo = Gio.DesktopAppInfo.new('com.github.aska.PrayerTime.desktop');
             if (appInfo) {
                 appInfo.launch([], null);
-            } else {
-                GLib.spawn_command_line_async('prayer-time');
+                return;
             }
+        } catch (e) {
+            // Ignore and try CLI
+        }
+
+        try {
+            GLib.spawn_command_line_async('prayer-time');
         } catch (err) {
-            console.error(`[PrayerTimeClock] Error launching app fallback: ${err.message}`);
+            try {
+                const devMain = GLib.build_filenamev([GLib.get_home_dir(), 'Projects', 'Other', 'prayer-time', 'main.py']);
+                if (GLib.file_test(devMain, GLib.FileTest.EXISTS)) {
+                    GLib.spawn_command_line_async(`python3 "${devMain}"`);
+                }
+            } catch (ex) {
+                console.error(`[PrayerTimeClock] Error launching app fallback: ${ex.message}`);
+            }
         }
     }
 }

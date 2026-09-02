@@ -5,9 +5,25 @@
 }
 
 .prayer-clock-indicator-box {
-    spacing: 6px;
+    background-color: transparent !important;
+    background-gradient-direction: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0px !important;
     margin-left: 8px;
     margin-right: 0px;
+}
+
+.prayer-clock-indicator-box:hover,
+.prayer-clock-indicator-box:active,
+.prayer-clock-indicator-box:focus {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.prayer-clock-indicator-inner {
+    spacing: 6px;
 }
 
 .prayer-clock-indicator-label {
