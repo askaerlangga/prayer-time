@@ -177,40 +177,30 @@ export default class PrayerTimeClockExtension extends Extension {
         this._clockDisplay = null;
         this._prayerSection = null;
 
-        // Create UI components for top bar clock
-        this._indicatorBox = new St.Button({
+        // Create UI components for top bar clock (non-reactive display only)
+        this._indicatorBox = new St.BoxLayout({
             style_class: 'prayer-clock-indicator-box',
-            reactive: true,
-            can_focus: true,
-            track_hover: true,
-        });
-
-        const innerBox = new St.BoxLayout({
-            style_class: 'prayer-clock-indicator-inner',
-            y_align: Clutter.ActorAlign.CENTER,
+            reactive: false,
+            can_focus: false,
         });
 
         this._icon = new St.Icon({
             icon_name: 'alarm-symbolic',
             style_class: 'prayer-clock-indicator-icon system-status-icon',
+            reactive: false,
+            can_focus: false,
         });
 
         this._label = new St.Label({
             text: '',
             y_align: Clutter.ActorAlign.CENTER,
             style_class: 'prayer-clock-indicator-label',
+            reactive: false,
+            can_focus: false,
         });
 
-        innerBox.add_child(this._icon);
-        innerBox.add_child(this._label);
-        this._indicatorBox.child = innerBox;
-
-        this._indicatorBox.connect('clicked', () => {
-            this._openPrayerApp();
-            if (this._dateMenu && this._dateMenu.menu) {
-                this._dateMenu.menu.close();
-            }
-        });
+        this._indicatorBox.add_child(this._icon);
+        this._indicatorBox.add_child(this._label);
 
         // Insert into GNOME Shell DateMenu top bar pill
         this._attachToDateMenu();
