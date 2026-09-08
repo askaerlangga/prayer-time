@@ -128,6 +128,15 @@ Comment[id]=Pengingat waktu salat desktop
 Icon=com.github.aska.PrayerTime
 Terminal=false
 """
+            # Skip writing if file already exists with identical content
+            if os.path.exists(autostart_file):
+                try:
+                    with open(autostart_file, "r", encoding="utf-8") as f:
+                        if f.read() == content:
+                            return
+                except Exception:
+                    pass
+
             with open(autostart_file, "w", encoding="utf-8") as f:
                 f.write(content)
             os.chmod(autostart_file, 0o644)

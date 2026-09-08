@@ -5,6 +5,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 gi.require_version('Notify', '0.7')
 from gi.repository import Gtk, Adw, Gdk, Gio, GLib, Notify
+from prayer_time import settings
 from prayer_time.ui.window import PrayerWindow
 
 
@@ -70,11 +71,21 @@ class PrayerApplication(Adw.Application):
         except Exception as e:
             print(f"[PrayerTime] Warning: Failed to initialize libnotify: {e}")
 
+        # Synchronize autostart desktop entry if autostart is enabled
+        try:
+            if settings.get_setting("autostart", False):
+                settings.update_autostart(True)
+        except Exception as e:
+            print(f"[PrayerTime] Error synchronizing autostart entry: {e}")
+
     def do_activate(self):
         win = self._ensure_window()
         win.present()
 
     def do_shutdown(self):
+        for win in self.get_windows():
+            if hasattr(win, "_stop_timer"):
+                win._stop_timer()
         if Notify.is_initted():
             Notify.uninit()
         Adw.Application.do_shutdown(self)

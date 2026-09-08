@@ -153,7 +153,7 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.connect("close-request", self.on_close_request)
         self.connect("notify::visible", self.on_visibility_changed)
 
-        # Start timer if visible
+        # Ensure timer is active for background prayer checks and notifications
         self._ensure_timer()
 
     def _ensure_timer(self):
@@ -168,9 +168,6 @@ class PrayerWindow(Adw.ApplicationWindow):
     def on_visibility_changed(self, widget, pspec):
         if self.get_visible():
             self.update_ui()
-            self._ensure_timer()
-        else:
-            self._stop_timer()
 
     def on_close_request(self, window):
         self.set_visible(False)
@@ -405,6 +402,10 @@ class PrayerWindow(Adw.ApplicationWindow):
                 self.trigger_prayer_notification()
                 if self.today_timings:
                     self.recalculate_next_prayer(self.today_timings)
+
+        # Skip UI countdown and label rendering if window is hidden in background
+        if not self.get_visible():
+            return True
 
         # Iqamah count-up window
         if self.today_timings:
