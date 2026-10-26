@@ -105,20 +105,23 @@ def search_location_async(query, callback):
             for item in results:
                 name = item.get("display_name", "")
                 address = item.get("address", {})
+                addr_type = item.get("addresstype", "")
+
                 city = (
+                    item.get("name") or
+                    address.get(addr_type) or
+                    (name.split(",")[0].strip() if name else "") or
                     address.get("city") or
                     address.get("town") or
+                    address.get("municipality") or
                     address.get("village") or
                     address.get("suburb") or
-                    address.get("municipality")
+                    "Unknown"
                 )
-
-                if not city:
-                    city = name.split(",")[0].strip() if name else "Unknown"
 
                 # Generate administrative candidates for MyQuran lookup
                 candidates = []
-                keys = ["city", "town", "municipality", "county", "regency", "state", "suburb", "village"]
+                keys = ["city", "county", "regency", "city_district", "municipality", "town", "state", "suburb", "village"]
                 seen = set()
                 for key in keys:
                     val = address.get(key)

@@ -129,12 +129,14 @@ class LocationDialog(DialogBase):
             "en": {
                 "city": "City", "district": "District", "village": "Village",
                 "town": "Town", "suburb": "Suburb", "state": "State",
-                "country": "Country", "municipality": "Municipality", "regency": "Regency"
+                "country": "Country", "municipality": "Municipality", "regency": "Regency",
+                "city_district": "City District", "railway": "Railway Station", "station": "Station"
             },
             "id": {
                 "city": "Kota", "district": "Kecamatan", "village": "Kelurahan/Desa",
-                "town": "Kota", "suburb": "Kelurahan/Desa", "state": "Provinsi",
-                "country": "Negara", "municipality": "Kotamadya", "regency": "Kabupaten"
+                "town": "Kota", "suburb": "Kecamatan", "state": "Provinsi",
+                "country": "Negara", "municipality": "Kecamatan", "regency": "Kabupaten",
+                "city_district": "Kota Administrasi", "railway": "Stasiun Kereta", "station": "Stasiun"
             }
         }
         current_map = addresstype_map.get(lang, addresstype_map["id"])
