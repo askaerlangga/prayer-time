@@ -476,6 +476,9 @@ class PrayerWindow(Adw.ApplicationWindow):
                 dialog.present()
 
     def on_location_selected(self, location_data):
+        # Save to location history (deduplicates and moves to top)
+        settings.add_location_history(location_data)
+
         settings.set_setting("city", location_data["city"])
         settings.set_setting("country", location_data["country"])
         settings.set_setting("latitude", location_data["lat"])
@@ -490,14 +493,21 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.show_toast(f"Lokasi diubah ke {location_data['city']}" if lang == "id" else f"Location changed to {location_data['city']}")
 
         if location_data.get("country") == "Indonesia":
-            self.stack.set_visible_child_name("loading")
-            api.get_myquran_id_async(location_data, self.on_myquran_id_resolved)
+            # If myquran_id was already saved in location_data / history, reuse it!
+            cached_myquran_id = location_data.get("myquran_id")
+            if cached_myquran_id:
+                settings.set_setting("myquran_id", str(cached_myquran_id))
+                self.load_data()
+            else:
+                self.stack.set_visible_child_name("loading")
+                api.get_myquran_id_async(location_data, self.on_myquran_id_resolved)
         else:
             settings.set_setting("myquran_id", None)
             self.load_data()
 
     def on_myquran_id_resolved(self, myquran_id):
         settings.set_setting("myquran_id", myquran_id)
+        settings.update_latest_history_myquran_id(myquran_id)
         self.load_data()
 
     def on_refresh_clicked(self, widget_or_action=None, param=None):

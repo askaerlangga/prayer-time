@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import tempfile
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 CONFIG_DIR = os.path.expanduser("~/.config/prayer-time")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
@@ -22,7 +22,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "asr_iqamah": 10,
     "maghrib_iqamah": 10,
     "isha_iqamah": 10,
-    "cache": {}
+    "cache": {},
+    "location_history": []
 }
 
 
@@ -40,8 +41,22 @@ def load_settings() -> Dict[str, Any]:
     """Loads application settings from JSON, filling in any missing default keys."""
     init_config()
     if not os.path.exists(CONFIG_FILE):
-        save_settings(DEFAULT_SETTINGS)
-        return dict(DEFAULT_SETTINGS)
+        default_copy = dict(DEFAULT_SETTINGS)
+        # Seed initial location into history
+        city = default_copy.get("city")
+        if city:
+            default_copy["location_history"] = [{
+                "city": city,
+                "country": default_copy.get("country", ""),
+                "lat": default_copy.get("latitude", 0.0),
+                "lon": default_copy.get("longitude", 0.0),
+                "myquran_id": default_copy.get("myquran_id"),
+                "display_name": f"{city}, {default_copy.get('country', '')}",
+                "addresstype": "city",
+                "candidates": [city]
+            }]
+        save_settings(default_copy)
+        return default_copy
 
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -49,7 +64,23 @@ def load_settings() -> Dict[str, Any]:
             # Ensure all default keys exist
             for key, val in DEFAULT_SETTINGS.items():
                 if key not in settings:
-                    settings[key] = val
+                    if key == "location_history":
+                        city = settings.get("city")
+                        if city:
+                            settings["location_history"] = [{
+                                "city": city,
+                                "country": settings.get("country", ""),
+                                "lat": settings.get("latitude", 0.0),
+                                "lon": settings.get("longitude", 0.0),
+                                "myquran_id": settings.get("myquran_id"),
+                                "display_name": f"{city}, {settings.get('country', '')}",
+                                "addresstype": "city",
+                                "candidates": [city]
+                            }]
+                        else:
+                            settings["location_history"] = []
+                    else:
+                        settings[key] = val
             return settings
     except Exception as e:
         print(f"[PrayerTime] Error loading settings: {e}")
@@ -178,3 +209,107 @@ def set_cached_timings(city: str, month: int, year: int, data: Any) -> None:
     key = get_cache_key(city, month, year)
     cache[key] = data
     save_settings(settings)
+
+
+def get_location_history() -> List[Dict[str, Any]]:
+    """Retrieves list of location history entries."""
+    settings = load_settings()
+    history = settings.get("location_history", [])
+    if not isinstance(history, list):
+        return []
+    return list(history)
+
+
+def add_location_history(location_data: Dict[str, Any], max_items: int = 10) -> None:
+    """Adds a location entry to history, deduplicating and moving it to the top."""
+    if not location_data or not isinstance(location_data, dict):
+        return
+
+    settings = load_settings()
+    history = settings.get("location_history", [])
+    if not isinstance(history, list):
+        history = []
+
+    city = location_data.get("city", "Unknown")
+    country = location_data.get("country", "")
+    try:
+        lat = float(location_data.get("lat", 0.0))
+        lon = float(location_data.get("lon", 0.0))
+    except (ValueError, TypeError):
+        lat, lon = 0.0, 0.0
+
+    display_name = location_data.get("display_name", f"{city}, {country}")
+    addresstype = location_data.get("addresstype", "city")
+    candidates = location_data.get("candidates")
+    if not candidates:
+        candidates = [city]
+    myquran_id = location_data.get("myquran_id")
+
+    filtered_history = []
+    for item in history:
+        item_city = item.get("city", "")
+        item_country = item.get("country", "")
+        try:
+            item_lat = float(item.get("lat", 0.0))
+            item_lon = float(item.get("lon", 0.0))
+        except (ValueError, TypeError):
+            item_lat, item_lon = 0.0, 0.0
+
+        is_same_display = display_name and item.get("display_name") == display_name
+        is_same_coords = (
+            item_city.lower() == city.lower()
+            and item_country.lower() == country.lower()
+            and abs(item_lat - lat) < 0.05
+            and abs(item_lon - lon) < 0.05
+        )
+
+        if is_same_display or is_same_coords:
+            if not myquran_id and item.get("myquran_id"):
+                myquran_id = item.get("myquran_id")
+            continue
+        filtered_history.append(item)
+
+    new_item = {
+        "city": city,
+        "country": country,
+        "lat": lat,
+        "lon": lon,
+        "display_name": display_name,
+        "addresstype": addresstype,
+        "candidates": candidates,
+    }
+    if myquran_id:
+        new_item["myquran_id"] = str(myquran_id)
+
+    filtered_history.insert(0, new_item)
+    settings["location_history"] = filtered_history[:max_items]
+    save_settings(settings)
+
+
+def remove_location_history(index: int) -> None:
+    """Removes a location history entry by its index."""
+    settings = load_settings()
+    history = settings.get("location_history", [])
+    if isinstance(history, list) and 0 <= index < len(history):
+        history.pop(index)
+        settings["location_history"] = history
+        save_settings(settings)
+
+
+def clear_location_history() -> None:
+    """Clears all location history."""
+    settings = load_settings()
+    settings["location_history"] = []
+    save_settings(settings)
+
+
+def update_latest_history_myquran_id(myquran_id: Optional[str]) -> None:
+    """Updates the myquran_id of the most recent history entry if applicable."""
+    if not myquran_id:
+        return
+    settings = load_settings()
+    history = settings.get("location_history", [])
+    if history and isinstance(history, list):
+        history[0]["myquran_id"] = str(myquran_id)
+        settings["location_history"] = history
+        save_settings(settings)
