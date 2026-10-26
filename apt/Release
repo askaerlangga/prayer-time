@@ -2,16 +2,16 @@ Origin: Prayer Time Repository
 Label: Prayer Time
 Suite: stable
 Codename: stable
-Date: Tue, 08 Sep 2026 11:01:53 +0000
+Date: Mon, 26 Oct 2026 05:49:38 +0000
 Architectures: all
 Components: main
 Description: APT Repository for Desktop Prayer Times App
 MD5Sum:
- b4dd5685d79894bb2510f3f9a0e9b67b 6669 Packages
- 7270b85259862da58af4f3e6c6a808a3 1370 Packages.gz
+ 2533447a47e8928207ffb5fc2380f518 7614 Packages
+ a13ed460a44a1096bdd24515a89f6526 1482 Packages.gz
 SHA1:
- da9e8d9609e7a07a3c2df12a5f37f287ae1fa0e1 6669 Packages
- e0ea94854eb24953188b2f5dcc2b5f269e846637 1370 Packages.gz
+ 49083b60a1bb971887aacb58d61f6ca18efdd102 7614 Packages
+ 59b5459aecafb4969e32cd737171eb7f845019ed 1482 Packages.gz
 SHA256:
- ec462534452f81164d90c171e37d838eed4d2510dccbbbfb379c6b24fe1b2e86 6669 Packages
- f046c6ee70d1e4bffd762a6d080b5ac59d85989e7345dcc6e9f01cc55e7e0248 1370 Packages.gz
+ c07a57086aa1e13807dc5cf6acaf18e1d2a1b33eb0b493f01aa9fa352f5051e5 7614 Packages
+ a0c9ea1dad19d1f0780a709be436707655798dfcfe849e33baf43b91e9de848e 1482 Packages.gz
