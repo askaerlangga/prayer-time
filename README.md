@@ -8,8 +8,19 @@ A desktop prayer times app for Linux built using GTK 4 and Libadwaita. It runs i
 
 ## Screenshots
 
+### Desktop Application
+
 ![Main Window](data/screenshots/main_window.png)
-![App Indicator](data/screenshots/app_indicator.png)
+
+### GNOME Shell Extension
+
+**Top Bar Clock Indicator**
+
+![Top Bar Clock Indicator](data/screenshots/topbar_indicator.png)
+
+**Calendar Dropdown Schedule**
+
+![Calendar Dropdown Schedule](data/screenshots/calendar_schedule.png)
 
 ## Features
 
