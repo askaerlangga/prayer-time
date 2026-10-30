@@ -2,12 +2,19 @@ import unittest
 import datetime as dt_mod
 from datetime import datetime
 from unittest.mock import patch, MagicMock
-import gi
-gi.require_version('Gtk', '4.0')
-gi.require_version('Adw', '1')
-gi.require_version('Notify', '0.7')
 from prayer_time import i18n, settings
-from prayer_time.ui.window import PrayerWindow
+
+try:
+    import gi
+    gi.require_version('Gtk', '4.0')
+    gi.require_version('Adw', '1')
+    gi.require_version('Notify', '0.7')
+    from gi.repository import Gtk, Adw, Notify
+    from prayer_time.ui.window import PrayerWindow
+    HAS_GTK = True
+except (ValueError, ImportError):
+    HAS_GTK = False
+    PrayerWindow = None
 
 
 class TestNotificationMessages(unittest.TestCase):
@@ -33,6 +40,7 @@ class TestNotificationMessages(unittest.TestCase):
         sunrise_body = i18n.get_string("notif_sunrise_body", "id").format("05:45")
         self.assertEqual(sunrise_body, "Waktu Subuh telah berakhir (05:45).")
 
+    @unittest.skipUnless(HAS_GTK, "GTK4 / Libadwaita / Libnotify not available")
     @patch("prayer_time.ui.window.Notify.Notification.new")
     def test_trigger_prayer_notification_title_and_body(self, mock_notif_new):
         # Create a mock window instance to test trigger_prayer_notification logic
@@ -67,6 +75,7 @@ class TestNotificationMessages(unittest.TestCase):
                 "alarm-symbolic"
             )
 
+    @unittest.skipUnless(HAS_GTK, "GTK4 / Libadwaita / Libnotify not available")
     def test_update_tick_iqamah_to_countdown_transition(self):
         # Create a mock PrayerWindow to test update_tick transition
         win = MagicMock()
