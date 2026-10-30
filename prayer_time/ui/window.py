@@ -401,6 +401,12 @@ class PrayerWindow(Adw.ApplicationWindow):
                 self.card_box.remove_css_class("countdown-card-night")
                 self.card_box.add_css_class("countdown-card-night" if is_night else "countdown-card")
 
+    def present(self):
+        super().present()
+        if self.today_timings:
+            self.recalculate_next_prayer(self.today_timings)
+        self.update_tick()
+
     def highlight_active_row(self, active_api_name):
         for api_name, (row, time_lbl) in self.rows.items():
             row.remove_css_class("active-prayer-row")
@@ -440,9 +446,15 @@ class PrayerWindow(Adw.ApplicationWindow):
 
                 translated_name = i18n.get_prayer_name(api_name)
                 prefix = i18n.get_string("sunrise_active") if api_name == "Sunrise" else f"{i18n.get_string('prayer_time_active')}: {translated_name}"
-                self.lbl_next_prayer.set_label(prefix)
+                if self.lbl_next_prayer.get_label() != prefix:
+                    self.lbl_next_prayer.set_label(prefix)
+                    self.highlight_active_row(api_name)
+                    is_night = (api_name in ["Fajr", "Maghrib", "Isha"])
+                    self.card_box.remove_css_class("countdown-card")
+                    self.card_box.remove_css_class("countdown-card-night")
+                    self.card_box.add_css_class("countdown-card-night" if is_night else "countdown-card")
+
                 self.lbl_countdown.set_label(f"+{minutes:02d}:{secs:02d}")
-                self.highlight_active_row(api_name)
                 return True
 
         if not self.next_prayer_time:
@@ -455,6 +467,18 @@ class PrayerWindow(Adw.ApplicationWindow):
         secs = seconds % 60
 
         self.lbl_countdown.set_label(f"{hours:02d}:{minutes:02d}:{secs:02d}")
+
+        if self.next_prayer_api_name:
+            translated_name = i18n.get_prayer_name(self.next_prayer_api_name)
+            expected_label = f"{i18n.get_string('next_prayer')}: {translated_name}"
+            if self.lbl_next_prayer.get_label() != expected_label:
+                self.lbl_next_prayer.set_label(expected_label)
+                self.highlight_active_row(self.next_prayer_api_name)
+                is_night = (self.next_prayer_api_name == "Fajr")
+                self.card_box.remove_css_class("countdown-card")
+                self.card_box.remove_css_class("countdown-card-night")
+                self.card_box.add_css_class("countdown-card-night" if is_night else "countdown-card")
+
         return True
 
     def trigger_prayer_notification(self):
@@ -471,9 +495,8 @@ class PrayerWindow(Adw.ApplicationWindow):
                 title = i18n.get_string("notif_sunrise_title", lang)
                 body = i18n.get_string("notif_sunrise_body", lang).format(time_str)
             else:
-                title = i18n.get_string("notif_title", lang)
-                prayer_name = i18n.get_prayer_name(self.next_prayer_api_name, lang)
-                body = i18n.get_string("notif_body", lang).format(prayer_name, time_str)
+                title = i18n.get_prayer_name(self.next_prayer_api_name, lang)
+                body = i18n.get_string("notif_body", lang).format(time_str)
 
             notification = Notify.Notification.new(title, body, "alarm-symbolic")
             notification.set_urgency(Notify.Urgency.NORMAL)

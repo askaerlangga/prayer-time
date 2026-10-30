@@ -151,7 +151,7 @@ class PrayerSection extends St.Button {
         const lang = state.lang;
         const city = state.city;
         const timings = state.timings;
-        const nextPrayerName = state.nextPrayerName;
+        const activePrayerName = state.activePrayerName || state.nextPrayerName;
 
         this._headerLabel.text = lang === 'en' ? 'Prayer Times' : 'Waktu Salat';
         this._cityLabel.text = city;
@@ -159,11 +159,11 @@ class PrayerSection extends St.Button {
         for (const [key, widgets] of Object.entries(this._itemWidgets)) {
             const timeStr = (timings && timings[key]) ? timings[key].split(' ')[0] : '--:--';
             const name = PRAYER_NAMES[lang]?.[key] || key;
-            const isNext = key === nextPrayerName;
+            const isHighlighted = key === activePrayerName;
 
             widgets.nameLabel.text = name;
             widgets.timeLabel.text = timeStr;
-            widgets.box.style_class = isNext ? 'prayer-item-box prayer-item-capsule' : 'prayer-item-box';
+            widgets.box.style_class = isHighlighted ? 'prayer-item-box prayer-item-capsule' : 'prayer-item-box';
         }
     }
 });
@@ -183,6 +183,8 @@ export default class PrayerTimeClockExtension extends Extension {
         this._clockBox = null;
         this._clockDisplay = null;
         this._prayerSection = null;
+        this._menuOpenId = null;
+        this._lastActivePrayerName = '';
 
         // Create UI components for top bar clock (non-reactive display only)
         this._indicatorBox = new St.BoxLayout({
@@ -273,6 +275,14 @@ export default class PrayerTimeClockExtension extends Extension {
         }
 
         // Clean up DateMenu dropdown section
+        if (this._menuOpenId) {
+            const dateMenu = Main.panel.statusArea.dateMenu;
+            if (dateMenu && dateMenu.menu) {
+                dateMenu.menu.disconnect(this._menuOpenId);
+            }
+            this._menuOpenId = null;
+        }
+
         if (this._prayerSection) {
             const parent = this._prayerSection.get_parent();
             if (parent) {
@@ -325,6 +335,14 @@ export default class PrayerTimeClockExtension extends Extension {
             } else {
                 displaysBox.add_child(this._prayerSection);
             }
+        }
+
+        if (dateMenu.menu) {
+            this._menuOpenId = dateMenu.menu.connect('open-state-changed', (menu, isOpen) => {
+                if (isOpen && this._prayerSection) {
+                    this._prayerSection.update();
+                }
+            });
         }
     }
 
@@ -521,11 +539,16 @@ export default class PrayerTimeClockExtension extends Extension {
 
     getDisplayState() {
         const settings = this._settings || {};
+        const now = new Date();
+        const iqamahActive = this._getCurrentIqamahPrayer(now);
+        const activePrayerName = iqamahActive ? iqamahActive.name : this._nextPrayerName;
+
         return {
             lang: settings.language || 'id',
             city: settings.city || 'Jakarta',
             timings: this._todayTimings,
             nextPrayerName: this._nextPrayerName,
+            activePrayerName: activePrayerName,
         };
     }
 
@@ -554,6 +577,14 @@ export default class PrayerTimeClockExtension extends Extension {
 
         // 1. Check Iqamah status
         const iqamahActive = this._getCurrentIqamahPrayer(now);
+        const currentActivePrayerName = iqamahActive ? iqamahActive.name : this._nextPrayerName;
+        if (currentActivePrayerName !== this._lastActivePrayerName) {
+            this._lastActivePrayerName = currentActivePrayerName;
+            if (this._prayerSection) {
+                this._prayerSection.update();
+            }
+        }
+
         if (iqamahActive) {
             const elapsedSeconds = Math.floor((now.getTime() - iqamahActive.date.getTime()) / 1000);
             const minutes = Math.floor(elapsedSeconds / 60);
