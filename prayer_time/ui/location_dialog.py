@@ -2,6 +2,7 @@ from gi.repository import Gtk, Adw, GLib
 from prayer_time import api
 from prayer_time import settings
 from prayer_time import i18n
+from prayer_time import geoclue
 
 # Base class compatibility for Libadwaita
 DialogBase = Adw.Dialog if hasattr(Adw, "Dialog") else Adw.Window
@@ -52,9 +53,26 @@ class LocationDialog(DialogBase):
         self.search_entry.set_title(i18n.get_string("search_entry_title", lang))
         self.search_entry.connect("changed", self.on_search_changed)
 
+        # Geoclue Use Current Location Row
+        self.current_loc_row = Adw.ActionRow()
+        self.current_loc_row.set_icon_name("find-location-symbolic")
+        self.current_loc_row.set_title(i18n.get_string("use_current_location", lang))
+        self.current_loc_row.set_subtitle(i18n.get_string("use_current_location_sub", lang))
+        self.current_loc_row.set_activatable(True)
+        self.current_loc_row.connect("activated", self.on_use_current_location_activated)
+
+        self.current_loc_spinner = Adw.Spinner()
+        self.current_loc_spinner.set_visible(False)
+        self.current_loc_row.add_suffix(self.current_loc_spinner)
+
+        if not geoclue.is_geoclue_available():
+            self.current_loc_row.set_sensitive(False)
+            self.current_loc_row.set_subtitle(i18n.get_string("geoclue_not_available", lang))
+
         # Preferences group for nice boxed styling
         pref_group = Adw.PreferencesGroup()
         pref_group.add(self.search_entry)
+        pref_group.add(self.current_loc_row)
         vbox.append(pref_group)
 
         # Loader spinner
@@ -275,6 +293,44 @@ class LocationDialog(DialogBase):
             row.set_subtitle(item.get("display_name", ""))
             self.results_list.append(row)
 
+    def on_use_current_location_activated(self, row):
+        if not geoclue.is_geoclue_available():
+            return
+
+        self.current_loc_row.set_sensitive(False)
+        self.current_loc_spinner.set_visible(True)
+        lang = settings.get_setting("language", "id")
+        self.current_loc_row.set_subtitle(i18n.get_string("detecting_location", lang))
+
+        geoclue.GeoclueService.get_default().get_location_async(self.on_current_coordinates_received)
+
+    def on_current_coordinates_received(self, lat, lon, error):
+        lang = settings.get_setting("language", "id")
+        if error or lat is None or lon is None:
+            self.current_loc_spinner.set_visible(False)
+            self.current_loc_row.set_sensitive(True)
+            self.current_loc_row.set_subtitle(i18n.get_string("location_detect_failed", lang).format(error or "Error"))
+            return
+
+        api.reverse_geocode_async(lat, lon, self.on_current_address_resolved)
+
+    def on_current_address_resolved(self, location_data, error):
+        self.current_loc_spinner.set_visible(False)
+        self.current_loc_row.set_sensitive(True)
+        lang = settings.get_setting("language", "id")
+        self.current_loc_row.set_subtitle(i18n.get_string("use_current_location_sub", lang))
+
+        if error or not location_data:
+            self.current_loc_row.set_subtitle(i18n.get_string("location_detect_failed", lang).format(error or "Error"))
+            return
+
+        location_data["is_geoclue"] = True
+        self.on_location_selected(location_data)
+        if hasattr(self, "close"):
+            self.close()
+        elif hasattr(self, "destroy"):
+            self.destroy()
+
     def on_row_activated(self, list_box, row):
         if self._deleting:
             self._deleting = False
@@ -282,7 +338,8 @@ class LocationDialog(DialogBase):
 
         index = row.get_index()
         if 0 <= index < len(self.displayed_items):
-            selected_data = self.displayed_items[index]
+            selected_data = dict(self.displayed_items[index])
+            selected_data["is_geoclue"] = False
             self.on_location_selected(selected_data)
             if hasattr(self, "close"):
                 self.close()

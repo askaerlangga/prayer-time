@@ -16,6 +16,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "myquran_id": "1301",  # Jakarta v2 ID
     "autostart": False,
     "enable_audio": True,
+    "auto_location": False,
     "language": "id",
     "fajr_iqamah": 15,
     "dhuhr_iqamah": 10,

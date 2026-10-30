@@ -1,9 +1,11 @@
+import math
 import datetime
 import subprocess
 from gi.repository import Gtk, Adw, GLib, Gio, Notify
 from prayer_time import settings
 from prayer_time import api
 from prayer_time import i18n
+from prayer_time import geoclue
 from prayer_time import __version__
 from prayer_time.ui.location_dialog import LocationDialog
 from prayer_time.ui.preferences_window import PreferencesWindow
@@ -156,6 +158,12 @@ class PrayerWindow(Adw.ApplicationWindow):
         # Ensure timer is active for background prayer checks and notifications
         self._ensure_timer()
 
+        self.pref_dialog = None
+
+        # Start Geoclue auto location if enabled
+        if settings.get_setting("auto_location", False):
+            self.start_auto_location(force_fetch=True)
+
     def _ensure_timer(self):
         if not self.timer_id:
             self.timer_id = GLib.timeout_add_seconds(1, self.update_tick)
@@ -164,6 +172,7 @@ class PrayerWindow(Adw.ApplicationWindow):
         if self.timer_id:
             GLib.source_remove(self.timer_id)
             self.timer_id = None
+        self.stop_auto_location()
 
     def on_visibility_changed(self, widget, pspec):
         if self.get_visible():
@@ -475,7 +484,56 @@ class PrayerWindow(Adw.ApplicationWindow):
             except TypeError:
                 dialog.present()
 
+    def start_auto_location(self, force_fetch=False):
+        if not geoclue.is_geoclue_available():
+            return
+
+        service = geoclue.GeoclueService.get_default()
+        service.start_monitoring(self.on_auto_location_changed)
+
+        if force_fetch:
+            service.get_location_async(self.on_auto_geoclue_coords)
+
+    def stop_auto_location(self):
+        if geoclue.is_geoclue_available():
+            geoclue.GeoclueService.get_default().stop_monitoring()
+
+    def on_auto_location_changed(self, lat, lon):
+        api.reverse_geocode_async(lat, lon, self.on_auto_address_resolved)
+
+    def on_auto_geoclue_coords(self, lat, lon, error):
+        if error or lat is None or lon is None:
+            return
+        curr_lat = settings.get_setting("latitude", 0.0)
+        curr_lon = settings.get_setting("longitude", 0.0)
+        if math.hypot(lat - curr_lat, lon - curr_lon) < 0.01:
+            return
+        api.reverse_geocode_async(lat, lon, self.on_auto_address_resolved)
+
+    def on_auto_address_resolved(self, location_data, error):
+        if error or not location_data:
+            return
+        location_data["is_geoclue"] = True
+        self.apply_location_data(location_data, is_auto=True)
+
     def on_location_selected(self, location_data):
+        is_geoclue = location_data.get("is_geoclue", False)
+        settings.set_setting("auto_location", is_geoclue)
+
+        if hasattr(self, "pref_dialog") and self.pref_dialog:
+            try:
+                self.pref_dialog.auto_loc_row.set_active(is_geoclue)
+            except Exception:
+                pass
+
+        if is_geoclue:
+            self.start_auto_location(force_fetch=False)
+        else:
+            self.stop_auto_location()
+
+        self.apply_location_data(location_data, is_auto=is_geoclue)
+
+    def apply_location_data(self, location_data, is_auto=False):
         # Save to location history (deduplicates and moves to top)
         settings.add_location_history(location_data)
 
@@ -490,7 +548,10 @@ class PrayerWindow(Adw.ApplicationWindow):
         settings.save_settings(config)
 
         lang = settings.get_setting("language", "id")
-        self.show_toast(f"Lokasi diubah ke {location_data['city']}" if lang == "id" else f"Location changed to {location_data['city']}")
+        if is_auto:
+            self.show_toast(i18n.get_string("location_detected", lang).format(location_data["city"]))
+        else:
+            self.show_toast(f"Lokasi diubah ke {location_data['city']}" if lang == "id" else f"Location changed to {location_data['city']}")
 
         if location_data.get("country") == "Indonesia":
             # If myquran_id was already saved in location_data / history, reuse it!
@@ -511,6 +572,9 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.load_data()
 
     def on_refresh_clicked(self, widget_or_action=None, param=None):
+        if settings.get_setting("auto_location", False):
+            self.start_auto_location(force_fetch=True)
+
         city = settings.get_setting("city", "Jakarta")
         now = datetime.datetime.now()
         key = settings.get_cache_key(city, now.month, now.year)
@@ -525,8 +589,8 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.load_data()
 
     def on_preferences_clicked(self, action, param):
-        dialog = PreferencesWindow(self)
-        dialog.present()
+        self.pref_dialog = PreferencesWindow(self)
+        self.pref_dialog.present()
 
     def on_about_clicked(self, action, param):
         lang = settings.get_setting("language", "id")

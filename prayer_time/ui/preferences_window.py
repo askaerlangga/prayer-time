@@ -1,6 +1,7 @@
 from gi.repository import Gtk, Adw
 from prayer_time import settings
 from prayer_time import i18n
+from prayer_time import geoclue
 
 
 class PreferencesWindow(Adw.PreferencesWindow):
@@ -28,6 +29,18 @@ class PreferencesWindow(Adw.PreferencesWindow):
         self.audio_row.set_active(settings.get_setting("enable_audio", True))
         self.audio_row.connect("notify::active", self.on_audio_changed)
         self.general_group.add(self.audio_row)
+
+        # Location Preferences Group
+        self.loc_group = Adw.PreferencesGroup()
+        page.add(self.loc_group)
+
+        # Auto Location Switch
+        self.auto_loc_row = Adw.SwitchRow()
+        self.auto_loc_row.set_active(settings.get_setting("auto_location", False))
+        self.auto_loc_row.connect("notify::active", self.on_auto_location_changed)
+        if not geoclue.is_geoclue_available():
+            self.auto_loc_row.set_sensitive(False)
+        self.loc_group.add(self.auto_loc_row)
 
         # Language Preferences Group
         self.lang_group = Adw.PreferencesGroup()
@@ -74,6 +87,15 @@ class PreferencesWindow(Adw.PreferencesWindow):
     def on_audio_changed(self, row, pspec):
         settings.set_setting("enable_audio", row.get_active())
 
+    def on_auto_location_changed(self, row, pspec):
+        is_active = row.get_active()
+        settings.set_setting("auto_location", is_active)
+        if self.parent_window:
+            if is_active:
+                self.parent_window.start_auto_location(force_fetch=True)
+            else:
+                self.parent_window.stop_auto_location()
+
     def on_iqamah_changed(self, spin_row, key):
         settings.set_setting(key, int(spin_row.get_value()))
 
@@ -94,6 +116,12 @@ class PreferencesWindow(Adw.PreferencesWindow):
         self.autostart_row.set_subtitle(i18n.get_string("pref_autostart_sub", lang))
         self.audio_row.set_title(i18n.get_string("pref_audio", lang))
         self.audio_row.set_subtitle(i18n.get_string("pref_audio_sub", lang))
+        self.loc_group.set_title(i18n.get_string("pref_location", lang))
+        self.auto_loc_row.set_title(i18n.get_string("pref_auto_location", lang))
+        if geoclue.is_geoclue_available():
+            self.auto_loc_row.set_subtitle(i18n.get_string("pref_auto_location_sub", lang))
+        else:
+            self.auto_loc_row.set_subtitle(i18n.get_string("geoclue_not_available", lang))
         self.iqamah_group.set_title(i18n.get_string("pref_iqamah_group", lang))
         self.lang_group.set_title(i18n.get_string("pref_lang", lang))
         self.lang_row.set_title(i18n.get_string("pref_lang", lang))

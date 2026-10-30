@@ -157,6 +157,82 @@ def search_location_async(query, callback):
     threading.Thread(target=run, daemon=True).start()
 
 
+def reverse_geocode_async(latitude, longitude, callback):
+    """
+    Reverse geocodes coordinates (lat, lon) to human-readable address and candidates using Nominatim.
+    Runs in a background thread and calls callback(location_data, error) on the main GLib thread.
+    """
+    def run():
+        headers = {"User-Agent": USER_AGENT}
+        try:
+            url = "https://nominatim.openstreetmap.org/reverse"
+            params = {
+                "lat": latitude,
+                "lon": longitude,
+                "format": "json",
+                "addressdetails": 1
+            }
+            r = requests.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            if r.status_code != 200:
+                GLib.idle_add(callback, None, f"Reverse Geocode Error: Status {r.status_code}")
+                return
+
+            item = r.json()
+            if not item or "address" not in item:
+                GLib.idle_add(callback, None, "Invalid response from geocoding service")
+                return
+
+            name = item.get("display_name", "")
+            address = item.get("address", {})
+            addr_type = item.get("addresstype", "city")
+
+            # Determine best city name representation
+            city = (
+                address.get("city") or
+                address.get("town") or
+                address.get("municipality") or
+                address.get("regency") or
+                address.get("county") or
+                item.get("name") or
+                address.get(addr_type) or
+                address.get("village") or
+                address.get("suburb") or
+                (name.split(",")[0].strip() if name else "") or
+                "Unknown"
+            )
+
+            # Generate administrative candidates for MyQuran lookup
+            candidates = []
+            keys = ["city", "county", "regency", "city_district", "municipality", "town", "state", "suburb", "village"]
+            seen = set()
+            for key in keys:
+                val = address.get(key)
+                if val and val not in seen:
+                    candidates.append(val)
+                    seen.add(val)
+
+            location_data = {
+                "display_name": name,
+                "city": city,
+                "country": address.get("country", ""),
+                "addresstype": addr_type,
+                "lat": float(latitude),
+                "lon": float(longitude),
+                "candidates": candidates
+            }
+
+            GLib.idle_add(callback, location_data, None)
+
+        except requests.exceptions.Timeout:
+            GLib.idle_add(callback, None, "Geocoding timed out. Please check your internet connection.")
+        except requests.exceptions.RequestException as e:
+            GLib.idle_add(callback, None, f"Network error: {e}")
+        except Exception as e:
+            GLib.idle_add(callback, None, str(e))
+
+    threading.Thread(target=run, daemon=True).start()
+
+
 def get_myquran_id_async(location_data, callback):
     """
     Searches for a city ID in the MyQuran v2 database.
