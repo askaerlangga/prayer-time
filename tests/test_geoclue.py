@@ -75,7 +75,8 @@ class TestGeoclue(unittest.TestCase):
         def callback(lat, lon):
             notified.append((lat, lon))
 
-        svc.start_monitoring(callback)
+        svc._on_location_changed_callback = callback
+        svc._last_coords = None
 
         # First coordinate update should notify
         svc._check_and_notify(-6.2088, 106.8456)
