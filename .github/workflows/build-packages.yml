@@ -46,6 +46,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y dpkg-dev fakeroot zip
 
+      - name: Run unit tests
+        run: |
+          python3 -m unittest discover -s tests -v
+
       - name: Build .deb package and extension zip
         run: |
           VERSION=${{ needs.set-version.outputs.version }}
@@ -77,21 +81,7 @@ jobs:
           chmod 755 ${PKG}/usr/bin/prayer-time
 
           cp data/icons/icon.svg ${PKG}/usr/share/icons/hicolor/scalable/apps/com.github.aska.PrayerTime.svg
-
-          cat > ${PKG}/usr/share/applications/com.github.aska.PrayerTime.desktop << EOF
-          [Desktop Entry]
-          Name=Prayer Times
-          Name[id]=Waktu Salat
-          Comment=Desktop prayer times reminder
-          Comment[id]=Pengingat waktu salat desktop
-          Exec=prayer-time
-          Icon=com.github.aska.PrayerTime
-          Terminal=false
-          Type=Application
-          Categories=Utility;
-          Keywords=prayer;islam;salat;sholat;adhan;
-          StartupNotify=true
-          EOF
+          cp data/com.github.aska.PrayerTime.desktop ${PKG}/usr/share/applications/com.github.aska.PrayerTime.desktop
 
           cat > ${PKG}/DEBIAN/control << EOF
           Package: prayer-time
@@ -218,21 +208,7 @@ jobs:
           chmod 755 %{buildroot}/usr/bin/prayer-time
 
           cp data/icons/icon.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/com.github.aska.PrayerTime.svg
-
-          cat > %{buildroot}/usr/share/applications/com.github.aska.PrayerTime.desktop << 'DESKTOP'
-          [Desktop Entry]
-          Name=Prayer Times
-          Name[id]=Waktu Salat
-          Comment=Desktop prayer times reminder
-          Comment[id]=Pengingat waktu salat desktop
-          Exec=prayer-time
-          Icon=com.github.aska.PrayerTime
-          Terminal=false
-          Type=Application
-          Categories=Utility;
-          Keywords=prayer;islam;salat;sholat;adhan;
-          StartupNotify=true
-          DESKTOP
+          cp data/com.github.aska.PrayerTime.desktop %{buildroot}/usr/share/applications/com.github.aska.PrayerTime.desktop
 
           %post
           if command -v update-desktop-database > /dev/null 2>&1; then

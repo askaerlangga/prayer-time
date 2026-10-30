@@ -1,5 +1,7 @@
 import threading
 import datetime
+import urllib.parse
+from typing import Any, Dict, List, Optional
 import requests
 from gi.repository import GLib
 from prayer_time import __version__
@@ -7,15 +9,104 @@ from prayer_time import __version__
 REQUEST_TIMEOUT_SECONDS = 10
 USER_AGENT = f"PrayerTime/{__version__} (https://github.com/askaerlangga/prayer-time)"
 
+# Thread-local storage to provide safe, independent connection pooling per thread
+_thread_local = threading.local()
 
-def fetch_prayer_times_async(latitude, longitude, method, month, year, myquran_id, callback):
+
+def _get_session() -> requests.Session:
+    """Returns a thread-local requests.Session configured with standard User-Agent."""
+    session = getattr(_thread_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        session.headers.update({"User-Agent": USER_AGENT})
+        _thread_local.session = session
+    return session
+
+
+def _parse_nominatim_item(
+    item: Dict[str, Any],
+    is_reverse: bool = False,
+    override_lat: Optional[float] = None,
+    override_lon: Optional[float] = None
+) -> Dict[str, Any]:
+    """
+    Extracts standardized location attributes and administrative candidates from a Nominatim payload.
+    For reverse geocoding (GPS), prioritizes administrative city names over POI/building names,
+    and preserves exact GPS coordinates passed in override_lat / override_lon.
+    """
+    name = item.get("display_name", "")
+    address = item.get("address", {})
+    addr_type = item.get("addresstype", "city")
+
+    if is_reverse:
+        # For GPS reverse geocode, look for administrative boundaries first
+        city = (
+            address.get("city") or
+            address.get("town") or
+            address.get("municipality") or
+            address.get("regency") or
+            address.get("county") or
+            item.get("name") or
+            address.get(addr_type) or
+            address.get("village") or
+            address.get("suburb") or
+            (name.split(",")[0].strip() if name else "") or
+            "Unknown"
+        )
+    else:
+        # For free-text search, prioritize direct match name
+        city = (
+            item.get("name") or
+            address.get(addr_type) or
+            (name.split(",")[0].strip() if name else "") or
+            address.get("city") or
+            address.get("town") or
+            address.get("municipality") or
+            address.get("regency") or
+            address.get("county") or
+            address.get("village") or
+            address.get("suburb") or
+            "Unknown"
+        )
+
+    candidates = []
+    keys = ["city", "county", "regency", "city_district", "municipality", "town", "state", "suburb", "village"]
+    seen = set()
+    for key in keys:
+        val = address.get(key)
+        if val and val not in seen:
+            candidates.append(val)
+            seen.add(val)
+
+    if override_lat is not None and override_lon is not None:
+        lat_val = float(override_lat)
+        lon_val = float(override_lon)
+    else:
+        try:
+            lat_val = float(item.get("lat", 0.0))
+            lon_val = float(item.get("lon", 0.0))
+        except (ValueError, TypeError):
+            lat_val, lon_val = 0.0, 0.0
+
+    return {
+        "display_name": name,
+        "city": city,
+        "country": address.get("country", ""),
+        "addresstype": addr_type,
+        "lat": lat_val,
+        "lon": lon_val,
+        "candidates": candidates
+    }
+
+
+def fetch_prayer_times_async(latitude, longitude, method, month, year, myquran_id, callback, request_id=None):
     """
     Fetches prayer times for a whole month by coordinates (from Aladhan).
-    If myquran_id is provided, fetches official Kemenag times and overrides Aladhan times,
-    keeping Gregorian and Hijri calendar structures intact.
+    If myquran_id is provided, fetches official Kemenag times and overrides Aladhan times.
+    Optional request_id is passed back to callback(data, error, request_id) if provided.
     """
     def run():
-        headers = {"User-Agent": USER_AGENT}
+        session = _get_session()
         try:
             # 1. Fetch monthly calendar from Aladhan API
             aladhan_url = "https://api.aladhan.com/v1/calendar"
@@ -26,22 +117,23 @@ def fetch_prayer_times_async(latitude, longitude, method, month, year, myquran_i
                 "month": month,
                 "year": year
             }
-            r = requests.get(aladhan_url, params=aladhan_params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            r = session.get(aladhan_url, params=aladhan_params, timeout=REQUEST_TIMEOUT_SECONDS)
             if r.status_code != 200:
-                GLib.idle_add(callback, None, f"Aladhan API Error: Status {r.status_code}")
+                _dispatch_callback(callback, None, f"Aladhan API Error: Status {r.status_code}", request_id)
                 return
 
             response_json = r.json()
             data = response_json.get("data", [])
             if not data:
-                GLib.idle_add(callback, None, "No prayer data returned from API")
+                _dispatch_callback(callback, None, "No prayer data returned from API", request_id)
                 return
 
             # 2. If it is an Indonesian city with MyQuran ID, merge Kemenag times
             if myquran_id:
                 try:
-                    myquran_url = f"https://api.myquran.com/v2/sholat/jadwal/{myquran_id}/{year}/{month:02d}"
-                    rq = requests.get(myquran_url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+                    safe_id = urllib.parse.quote(str(myquran_id), safe="")
+                    myquran_url = f"https://api.myquran.com/v2/sholat/jadwal/{safe_id}/{year}/{month:02d}"
+                    rq = session.get(myquran_url, timeout=REQUEST_TIMEOUT_SECONDS)
                     if rq.status_code == 200:
                         res = rq.json()
                         if res.get("status") and "data" in res and "jadwal" in res["data"]:
@@ -68,25 +160,33 @@ def fetch_prayer_times_async(latitude, longitude, method, month, year, myquran_i
                 except Exception as ex:
                     print(f"[PrayerTime] Warning: Error merging MyQuran data: {ex}")
 
-            GLib.idle_add(callback, data, None)
+            _dispatch_callback(callback, data, None, request_id)
 
         except requests.exceptions.Timeout:
-            GLib.idle_add(callback, None, "Request timed out. Please check your internet connection.")
+            _dispatch_callback(callback, None, "Request timed out. Please check your internet connection.", request_id)
         except requests.exceptions.RequestException as e:
-            GLib.idle_add(callback, None, f"Network error: {e}")
+            _dispatch_callback(callback, None, f"Network error: {e}", request_id)
         except Exception as e:
-            GLib.idle_add(callback, None, str(e))
+            _dispatch_callback(callback, None, str(e), request_id)
 
     threading.Thread(target=run, daemon=True).start()
 
 
-def search_location_async(query, callback):
+def _dispatch_callback(callback, data, error, request_id=None):
+    """Safely dispatches callback onto main GLib thread, passing request_id if specified."""
+    if request_id is not None:
+        GLib.idle_add(callback, data, error, request_id)
+    else:
+        GLib.idle_add(callback, data, error)
+
+
+def search_location_async(query, callback, request_id=None):
     """
     Searches for a location using OpenStreetMap's Nominatim geocoding.
-    Runs in a background thread and calls callback(results, error) on the main GLib thread.
+    Runs in a background thread and calls callback(results, error, [request_id]) on main thread.
     """
     def run():
-        headers = {"User-Agent": USER_AGENT}
+        session = _get_session()
         try:
             url = "https://nominatim.openstreetmap.org/search"
             params = {
@@ -95,64 +195,21 @@ def search_location_async(query, callback):
                 "limit": 5,
                 "addressdetails": 1
             }
-            r = requests.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            r = session.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
             if r.status_code != 200:
-                GLib.idle_add(callback, None, f"Search Error: Status {r.status_code}")
+                _dispatch_callback(callback, None, f"Search Error: Status {r.status_code}", request_id)
                 return
 
             results = r.json()
-            parsed_results = []
-            for item in results:
-                name = item.get("display_name", "")
-                address = item.get("address", {})
-                addr_type = item.get("addresstype", "")
-
-                city = (
-                    item.get("name") or
-                    address.get(addr_type) or
-                    (name.split(",")[0].strip() if name else "") or
-                    address.get("city") or
-                    address.get("town") or
-                    address.get("municipality") or
-                    address.get("village") or
-                    address.get("suburb") or
-                    "Unknown"
-                )
-
-                # Generate administrative candidates for MyQuran lookup
-                candidates = []
-                keys = ["city", "county", "regency", "city_district", "municipality", "town", "state", "suburb", "village"]
-                seen = set()
-                for key in keys:
-                    val = address.get(key)
-                    if val and val not in seen:
-                        candidates.append(val)
-                        seen.add(val)
-
-                try:
-                    lat_val = float(item.get("lat", 0.0))
-                    lon_val = float(item.get("lon", 0.0))
-                except (ValueError, TypeError):
-                    lat_val, lon_val = 0.0, 0.0
-
-                parsed_results.append({
-                    "display_name": name,
-                    "city": city,
-                    "country": address.get("country", ""),
-                    "addresstype": item.get("addresstype", ""),
-                    "lat": lat_val,
-                    "lon": lon_val,
-                    "candidates": candidates
-                })
-
-            GLib.idle_add(callback, parsed_results, None)
+            parsed_results = [_parse_nominatim_item(item, is_reverse=False) for item in results]
+            _dispatch_callback(callback, parsed_results, None, request_id)
 
         except requests.exceptions.Timeout:
-            GLib.idle_add(callback, None, "Location search timed out.")
+            _dispatch_callback(callback, None, "Location search timed out.", request_id)
         except requests.exceptions.RequestException as e:
-            GLib.idle_add(callback, None, f"Network error: {e}")
+            _dispatch_callback(callback, None, f"Network error: {e}", request_id)
         except Exception as e:
-            GLib.idle_add(callback, None, str(e))
+            _dispatch_callback(callback, None, str(e), request_id)
 
     threading.Thread(target=run, daemon=True).start()
 
@@ -163,7 +220,7 @@ def reverse_geocode_async(latitude, longitude, callback):
     Runs in a background thread and calls callback(location_data, error) on the main GLib thread.
     """
     def run():
-        headers = {"User-Agent": USER_AGENT}
+        session = _get_session()
         try:
             url = "https://nominatim.openstreetmap.org/reverse"
             params = {
@@ -172,7 +229,7 @@ def reverse_geocode_async(latitude, longitude, callback):
                 "format": "json",
                 "addressdetails": 1
             }
-            r = requests.get(url, params=params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+            r = session.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
             if r.status_code != 200:
                 GLib.idle_add(callback, None, f"Reverse Geocode Error: Status {r.status_code}")
                 return
@@ -182,45 +239,12 @@ def reverse_geocode_async(latitude, longitude, callback):
                 GLib.idle_add(callback, None, "Invalid response from geocoding service")
                 return
 
-            name = item.get("display_name", "")
-            address = item.get("address", {})
-            addr_type = item.get("addresstype", "city")
-
-            # Determine best city name representation
-            city = (
-                address.get("city") or
-                address.get("town") or
-                address.get("municipality") or
-                address.get("regency") or
-                address.get("county") or
-                item.get("name") or
-                address.get(addr_type) or
-                address.get("village") or
-                address.get("suburb") or
-                (name.split(",")[0].strip() if name else "") or
-                "Unknown"
+            location_data = _parse_nominatim_item(
+                item,
+                is_reverse=True,
+                override_lat=float(latitude),
+                override_lon=float(longitude)
             )
-
-            # Generate administrative candidates for MyQuran lookup
-            candidates = []
-            keys = ["city", "county", "regency", "city_district", "municipality", "town", "state", "suburb", "village"]
-            seen = set()
-            for key in keys:
-                val = address.get(key)
-                if val and val not in seen:
-                    candidates.append(val)
-                    seen.add(val)
-
-            location_data = {
-                "display_name": name,
-                "city": city,
-                "country": address.get("country", ""),
-                "addresstype": addr_type,
-                "lat": float(latitude),
-                "lon": float(longitude),
-                "candidates": candidates
-            }
-
             GLib.idle_add(callback, location_data, None)
 
         except requests.exceptions.Timeout:
@@ -240,7 +264,7 @@ def get_myquran_id_async(location_data, callback):
     (city, county, state, etc.) and prefers matches based on the administrative type.
     """
     def run():
-        headers = {"User-Agent": USER_AGENT}
+        session = _get_session()
         try:
             if isinstance(location_data, dict):
                 city_name = location_data.get("city", "")
@@ -281,9 +305,10 @@ def get_myquran_id_async(location_data, callback):
                         continue
 
                     queries_tried += 1
-                    url = f"https://api.myquran.com/v2/sholat/kota/cari/{kw}"
+                    safe_kw = urllib.parse.quote(kw.strip(), safe="")
+                    url = f"https://api.myquran.com/v2/sholat/kota/cari/{safe_kw}"
                     try:
-                        r = requests.get(url, headers=headers, timeout=5)
+                        r = session.get(url, timeout=5)
                         if r.status_code == 200:
                             res = r.json()
                             if res.get("status") and res.get("data"):

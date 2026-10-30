@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Prayer Times
+Name[id]=Waktu Salat
+Comment=Desktop prayer times reminder
+Comment[id]=Pengingat waktu salat desktop
+Exec=prayer-time
+Icon=com.github.aska.PrayerTime
+Terminal=false
+Type=Application
+Categories=Utility;
+Keywords=prayer;islam;salat;sholat;adhan;
+StartupNotify=true

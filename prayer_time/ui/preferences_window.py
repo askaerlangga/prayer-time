@@ -98,6 +98,8 @@ class PreferencesWindow(Adw.PreferencesWindow):
 
     def on_iqamah_changed(self, spin_row, key):
         settings.set_setting(key, int(spin_row.get_value()))
+        if self.parent_window:
+            self.parent_window.update_ui()
 
     def on_lang_changed(self, combo_row, pspec):
         selected = combo_row.get_selected()

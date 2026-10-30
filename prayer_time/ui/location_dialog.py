@@ -27,22 +27,29 @@ class LocationDialog(DialogBase):
     def __init__(self, parent_window, on_location_selected):
         if DialogBase == Adw.Window:
             super().__init__(transient_for=parent_window, modal=True)
-            self.set_default_size(450, 450)
+            self.set_default_size(450, 480)
         else:
             super().__init__()
             self.set_content_width(450)
-            self.set_content_height(450)
+            self.set_content_height(480)
 
         self.parent_window = parent_window
         self.on_location_selected = on_location_selected
 
         self.search_timeout_id = None
+        self._search_request_id = 0
         self.displayed_items = []
         self.is_history_mode = True
         self._deleting = False
 
         lang = settings.get_setting("language", "id")
         self.set_title(i18n.get_string("loading_dialog_title", lang))
+
+        # HeaderBar for consistent UI across Adw.Dialog and Adw.Window
+        header_bar = Adw.HeaderBar()
+        header_bar.set_show_end_title_buttons(True)
+        header_title = Adw.WindowTitle(title=i18n.get_string("loading_dialog_title", lang))
+        header_bar.set_title_widget(header_title)
 
         # Main layout
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -112,14 +119,14 @@ class LocationDialog(DialogBase):
         scrolled.set_child(self.results_list)
         vbox.append(scrolled)
 
+        toolbar_view = Adw.ToolbarView()
+        toolbar_view.add_top_bar(header_bar)
+        toolbar_view.set_content(vbox)
+
         if DialogBase == Adw.Window:
-            header = Adw.HeaderBar()
-            outer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            outer_box.append(header)
-            outer_box.append(vbox)
-            self.set_content(outer_box)
+            self.set_content(toolbar_view)
         else:
-            self.set_child(vbox)
+            self.set_child(toolbar_view)
 
         # Initial display: show recent locations
         self.show_history()
@@ -221,6 +228,7 @@ class LocationDialog(DialogBase):
             GLib.source_remove(self.search_timeout_id)
             self.search_timeout_id = None
 
+        self._search_request_id += 1
         query = entry.get_text().strip()
         if not query:
             self.spinner.set_visible(False)
@@ -232,21 +240,26 @@ class LocationDialog(DialogBase):
             self.show_history(filter_query=query)
             return
 
-        # Schedule debounced search (400ms)
-        self.search_timeout_id = GLib.timeout_add(400, self.do_search, query)
+        # Schedule debounced search (400ms) with current request id
+        current_id = self._search_request_id
+        self.search_timeout_id = GLib.timeout_add(400, self.do_search, query, current_id)
 
-    def do_search(self, query):
+    def do_search(self, query, request_id):
         self.search_timeout_id = None
+        if request_id != self._search_request_id:
+            return False
         self.is_history_mode = False
         self.spinner.set_visible(True)
         self.clear_results()
         lang = settings.get_setting("language", "id")
         self.section_label.set_label(i18n.get_string("search_results", lang))
         self.clear_btn.set_visible(False)
-        api.search_location_async(query, self.on_search_results)
+        api.search_location_async(query, self.on_search_results, request_id=request_id)
         return False
 
-    def on_search_results(self, results, error):
+    def on_search_results(self, results, error, request_id=None):
+        if request_id is not None and request_id != self._search_request_id:
+            return  # Discard outdated search response
         self.spinner.set_visible(False)
         if self.is_history_mode:
             return

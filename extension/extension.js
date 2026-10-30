@@ -51,6 +51,7 @@ class PrayerSection extends St.Button {
             x_expand: true,
         });
         this._extension = extension;
+        this._itemWidgets = {};
 
         const mainBox = new St.BoxLayout({
             orientation: Clutter.Orientation.VERTICAL,
@@ -92,6 +93,49 @@ class PrayerSection extends St.Button {
         this._gridLayout.hookup_style(this._grid);
         mainBox.add_child(this._grid);
 
+        // Build static grid rows once and reuse actors
+        const prayerList = [
+            { key: 'Fajr', col: 0, row: 0 },
+            { key: 'Sunrise', col: 0, row: 1 },
+            { key: 'Dhuhr', col: 0, row: 2 },
+            { key: 'Asr', col: 1, row: 0 },
+            { key: 'Maghrib', col: 1, row: 1 },
+            { key: 'Isha', col: 1, row: 2 },
+        ];
+
+        for (const item of prayerList) {
+            const itemBox = new St.BoxLayout({
+                style_class: 'prayer-item-box',
+                x_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+
+            const nameLabel = new St.Label({
+                style_class: 'prayer-name-label',
+                text: item.key,
+                x_align: Clutter.ActorAlign.START,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+
+            const timeLabel = new St.Label({
+                style_class: 'world-clocks-time prayer-time-val',
+                text: '--:--',
+                x_align: Clutter.ActorAlign.END,
+                y_align: Clutter.ActorAlign.CENTER,
+                x_expand: true,
+            });
+
+            itemBox.add_child(nameLabel);
+            itemBox.add_child(timeLabel);
+            this._gridLayout.attach(itemBox, item.col, item.row, 1, 1);
+
+            this._itemWidgets[item.key] = {
+                box: itemBox,
+                nameLabel,
+                timeLabel,
+            };
+        }
+
         this.child = mainBox;
         this.update();
     }
@@ -103,60 +147,23 @@ class PrayerSection extends St.Button {
     }
 
     update() {
-        this._grid.destroy_all_children();
-
-        const settings = this._extension._settings || {};
-        const lang = settings.language || 'id';
-        const city = settings.city || 'Jakarta';
-        const timings = this._extension._todayTimings;
-        const nextPrayerName = this._extension._nextPrayerName;
+        const state = this._extension.getDisplayState();
+        const lang = state.lang;
+        const city = state.city;
+        const timings = state.timings;
+        const nextPrayerName = state.nextPrayerName;
 
         this._headerLabel.text = lang === 'en' ? 'Prayer Times' : 'Waktu Salat';
         this._cityLabel.text = city;
 
-        if (!timings) {
-            return;
-        }
+        for (const [key, widgets] of Object.entries(this._itemWidgets)) {
+            const timeStr = (timings && timings[key]) ? timings[key].split(' ')[0] : '--:--';
+            const name = PRAYER_NAMES[lang]?.[key] || key;
+            const isNext = key === nextPrayerName;
 
-        const prayerList = [
-            { key: 'Fajr', col: 0, row: 0 },
-            { key: 'Sunrise', col: 0, row: 1 },
-            { key: 'Dhuhr', col: 0, row: 2 },
-            { key: 'Asr', col: 1, row: 0 },
-            { key: 'Maghrib', col: 1, row: 1 },
-            { key: 'Isha', col: 1, row: 2 },
-        ];
-
-        for (const item of prayerList) {
-            const timeStr = timings[item.key] ? timings[item.key].split(' ')[0] : '--:--';
-            const name = PRAYER_NAMES[lang]?.[item.key] || item.key;
-            const isNext = item.key === nextPrayerName;
-
-            const itemBox = new St.BoxLayout({
-                style_class: isNext ? 'prayer-item-box prayer-item-capsule' : 'prayer-item-box',
-                x_expand: true,
-                y_align: Clutter.ActorAlign.CENTER,
-            });
-
-            const nameLabel = new St.Label({
-                style_class: 'prayer-name-label',
-                text: name,
-                x_align: Clutter.ActorAlign.START,
-                y_align: Clutter.ActorAlign.CENTER,
-            });
-
-            const timeLabel = new St.Label({
-                style_class: 'world-clocks-time prayer-time-val',
-                text: timeStr,
-                x_align: Clutter.ActorAlign.END,
-                y_align: Clutter.ActorAlign.CENTER,
-                x_expand: true,
-            });
-
-            itemBox.add_child(nameLabel);
-            itemBox.add_child(timeLabel);
-
-            this._gridLayout.attach(itemBox, item.col, item.row, 1, 1);
+            widgets.nameLabel.text = name;
+            widgets.timeLabel.text = timeStr;
+            widgets.box.style_class = isNext ? 'prayer-item-box prayer-item-capsule' : 'prayer-item-box';
         }
     }
 });
@@ -224,6 +231,11 @@ export default class PrayerTimeClockExtension extends Extension {
     }
 
     disable() {
+        if (this._debounceTimerId) {
+            GLib.Source.remove(this._debounceTimerId);
+            this._debounceTimerId = null;
+        }
+
         if (this._timerId) {
             GLib.Source.remove(this._timerId);
             this._timerId = null;
@@ -339,18 +351,27 @@ export default class PrayerTimeClockExtension extends Extension {
         try {
             const file = Gio.File.new_for_path(this._settingsPath);
             this._fileMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
+            this._debounceTimerId = null;
+
             this._fileMonitorId = this._fileMonitor.connect('changed', (monitor, file, otherFile, eventType) => {
                 if (
                     eventType === Gio.FileMonitorEvent.CHANGES_DONE_HINT ||
                     eventType === Gio.FileMonitorEvent.CHANGED ||
                     eventType === Gio.FileMonitorEvent.CREATED
                 ) {
-                    this._loadSettings();
-                    this._recalculateNextPrayer();
-                    this._updateDisplay();
-                    if (this._prayerSection) {
-                        this._prayerSection.update();
+                    if (this._debounceTimerId) {
+                        GLib.Source.remove(this._debounceTimerId);
                     }
+                    this._debounceTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+                        this._debounceTimerId = null;
+                        this._loadSettings();
+                        this._recalculateNextPrayer();
+                        this._updateDisplay();
+                        if (this._prayerSection) {
+                            this._prayerSection.update();
+                        }
+                        return GLib.SOURCE_REMOVE;
+                    });
                 }
             });
         } catch (e) {
@@ -498,6 +519,16 @@ export default class PrayerTimeClockExtension extends Extension {
         return langMap[pName] || pName;
     }
 
+    getDisplayState() {
+        const settings = this._settings || {};
+        return {
+            lang: settings.language || 'id',
+            city: settings.city || 'Jakarta',
+            timings: this._todayTimings,
+            nextPrayerName: this._nextPrayerName,
+        };
+    }
+
     _updateDisplay() {
         if (!this._label || !this._icon) return;
 
@@ -600,16 +631,10 @@ export default class PrayerTimeClockExtension extends Extension {
         }
 
         try {
-            GLib.spawn_command_line_async('prayer-time');
+            const proc = Gio.Subprocess.new(['prayer-time'], Gio.SubprocessFlags.NONE);
+            proc.wait_async(null, null);
         } catch (err) {
-            try {
-                const devMain = GLib.build_filenamev([GLib.get_home_dir(), 'Projects', 'Other', 'prayer-time', 'main.py']);
-                if (GLib.file_test(devMain, GLib.FileTest.EXISTS)) {
-                    GLib.spawn_command_line_async(`python3 "${devMain}"`);
-                }
-            } catch (ex) {
-                console.error(`[PrayerTimeClock] Error launching app fallback: ${ex.message}`);
-            }
+            console.error(`[PrayerTimeClock] Error launching app fallback: ${err.message}`);
         }
     }
 }

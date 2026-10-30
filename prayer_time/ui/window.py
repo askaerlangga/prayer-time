@@ -1,6 +1,5 @@
 import math
 import datetime
-import subprocess
 from gi.repository import Gtk, Adw, GLib, Gio, Notify
 from prayer_time import settings
 from prayer_time import api
@@ -25,6 +24,8 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.timer_id = None
         self.current_day_str = ""
         self.is_loading = False
+        self._load_request_id = 0
+        self._last_rollover_attempt_date = None
 
         # Toast Overlay for in-app feedback
         self.toast_overlay = Adw.ToastOverlay()
@@ -46,6 +47,10 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.header_bar.pack_end(self.menu_btn)
 
         # Window actions
+        search_action = Gio.SimpleAction.new("search", None)
+        search_action.connect("activate", self.on_search_clicked)
+        self.add_action(search_action)
+
         refresh_action = Gio.SimpleAction.new("refresh", None)
         refresh_action.connect("activate", self.on_refresh_clicked)
         self.add_action(refresh_action)
@@ -197,6 +202,7 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.menu.append(i18n.get_string("refresh_tooltip", lang), "win.refresh")
         self.menu.append(i18n.get_string("preferences", lang), "win.preferences")
         self.menu.append(i18n.get_string("about", lang), "win.about")
+        self.menu.append(i18n.get_string("quit", lang), "app.quit")
 
         self.loading_label.set_label(i18n.get_string("loading_data", lang))
 
@@ -211,8 +217,8 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.update_ui()
 
     def load_data(self, silent=False):
-        if self.is_loading:
-            return
+        self._load_request_id += 1
+        current_req_id = self._load_request_id
 
         self.is_loading = True
         if not silent or not self.prayer_data:
@@ -230,11 +236,14 @@ class PrayerWindow(Adw.ApplicationWindow):
         now = datetime.datetime.now()
         cached = settings.get_cached_timings(city, now.month, now.year)
         if cached:
-            self.on_data_loaded(cached, None)
+            self.on_data_loaded(cached, None, current_req_id)
         else:
-            api.fetch_prayer_times_async(lat, lon, method, now.month, now.year, myquran_id, self.on_data_loaded)
+            api.fetch_prayer_times_async(lat, lon, method, now.month, now.year, myquran_id, self.on_data_loaded, request_id=current_req_id)
 
-    def on_data_loaded(self, data, error):
+    def on_data_loaded(self, data, error, request_id=None):
+        if request_id is not None and request_id != self._load_request_id:
+            return  # Discard outdated response
+
         self.is_loading = False
         if error:
             if not self.prayer_data:
@@ -266,9 +275,12 @@ class PrayerWindow(Adw.ApplicationWindow):
                 break
 
         if not today_data:
-            self.load_data(silent=True)
+            if self._last_rollover_attempt_date != today_str:
+                self._last_rollover_attempt_date = today_str
+                self.load_data(silent=True)
             return
 
+        self._last_rollover_attempt_date = None
         self.current_day_str = today_str
         timings = today_data.get("timings", {})
         self.today_timings = timings
@@ -472,11 +484,14 @@ class PrayerWindow(Adw.ApplicationWindow):
         # Audio chime alert
         if settings.get_setting("enable_audio", True):
             try:
-                subprocess.Popen(["canberra-gtk-play", "--id", "complete"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                Gio.Subprocess.new(
+                    ["canberra-gtk-play", "--id", "complete"],
+                    Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE
+                )
             except Exception:
                 pass
 
-    def on_search_clicked(self, btn):
+    def on_search_clicked(self, widget_or_action=None, param=None):
         dialog = LocationDialog(self, self.on_location_selected)
         if hasattr(dialog, "present"):
             try:
@@ -518,7 +533,6 @@ class PrayerWindow(Adw.ApplicationWindow):
 
     def on_location_selected(self, location_data):
         is_geoclue = location_data.get("is_geoclue", False)
-        settings.set_setting("auto_location", is_geoclue)
 
         if hasattr(self, "pref_dialog") and self.pref_dialog:
             try:
@@ -534,40 +548,28 @@ class PrayerWindow(Adw.ApplicationWindow):
         self.apply_location_data(location_data, is_auto=is_geoclue)
 
     def apply_location_data(self, location_data, is_auto=False):
-        # Save to location history (deduplicates and moves to top)
-        settings.add_location_history(location_data)
-
-        settings.set_setting("city", location_data["city"])
-        settings.set_setting("country", location_data["country"])
-        settings.set_setting("latitude", location_data["lat"])
-        settings.set_setting("longitude", location_data["lon"])
-
-        # Reset cache for fresh location data
-        config = settings.load_settings()
-        config["cache"] = {}
-        settings.save_settings(config)
+        # Update location, history, auto_location flag and cache atomically in 1 disk write
+        resolved_myquran_id = settings.apply_location_selection(
+            location_data,
+            auto_location=is_auto
+        )
 
         lang = settings.get_setting("language", "id")
         if is_auto:
             self.show_toast(i18n.get_string("location_detected", lang).format(location_data["city"]))
         else:
-            self.show_toast(f"Lokasi diubah ke {location_data['city']}" if lang == "id" else f"Location changed to {location_data['city']}")
+            self.show_toast(i18n.get_string("location_changed", lang).format(location_data["city"]))
 
         if location_data.get("country") == "Indonesia":
-            # If myquran_id was already saved in location_data / history, reuse it!
-            cached_myquran_id = location_data.get("myquran_id")
-            if cached_myquran_id:
-                settings.set_setting("myquran_id", str(cached_myquran_id))
+            if resolved_myquran_id:
                 self.load_data()
             else:
                 self.stack.set_visible_child_name("loading")
                 api.get_myquran_id_async(location_data, self.on_myquran_id_resolved)
         else:
-            settings.set_setting("myquran_id", None)
             self.load_data()
 
     def on_myquran_id_resolved(self, myquran_id):
-        settings.set_setting("myquran_id", myquran_id)
         settings.update_latest_history_myquran_id(myquran_id)
         self.load_data()
 
@@ -577,15 +579,10 @@ class PrayerWindow(Adw.ApplicationWindow):
 
         city = settings.get_setting("city", "Jakarta")
         now = datetime.datetime.now()
-        key = settings.get_cache_key(city, now.month, now.year)
-
-        config = settings.load_settings()
-        if "cache" in config and key in config["cache"]:
-            config["cache"].pop(key)
-            settings.save_settings(config)
+        settings.invalidate_cached_timings(city, now.month, now.year)
 
         lang = settings.get_setting("language", "id")
-        self.show_toast("Jadwal diperbarui" if lang == "id" else "Schedule refreshed")
+        self.show_toast(i18n.get_string("schedule_refreshed", lang))
         self.load_data()
 
     def on_preferences_clicked(self, action, param):
@@ -594,8 +591,7 @@ class PrayerWindow(Adw.ApplicationWindow):
 
     def on_about_clicked(self, action, param):
         lang = settings.get_setting("language", "id")
-        about = Adw.AboutWindow(
-            transient_for=self,
+        about_kwargs = dict(
             application_name=i18n.get_string("app_title", lang),
             application_icon="com.github.aska.PrayerTime",
             version=__version__,
@@ -608,4 +604,9 @@ class PrayerWindow(Adw.ApplicationWindow):
             issue_url="https://github.com/askaerlangga/prayer-time/issues",
             comments=i18n.get_string("about_comments", lang)
         )
-        about.present()
+        if hasattr(Adw, "AboutDialog"):
+            about = Adw.AboutDialog(**about_kwargs)
+            about.present(self)
+        else:
+            about = Adw.AboutWindow(transient_for=self, **about_kwargs)
+            about.present()

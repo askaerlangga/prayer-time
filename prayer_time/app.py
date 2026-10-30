@@ -71,6 +71,16 @@ class PrayerApplication(Adw.Application):
         except Exception as e:
             print(f"[PrayerTime] Warning: Failed to initialize libnotify: {e}")
 
+        # Register quit action and keyboard shortcuts
+        quit_action = Gio.SimpleAction.new("quit", None)
+        quit_action.connect("activate", lambda a, p: self.quit())
+        self.add_action(quit_action)
+
+        self.set_accels_for_action("app.quit", ["<Control>q"])
+        self.set_accels_for_action("win.search", ["<Control>f"])
+        self.set_accels_for_action("win.refresh", ["<Control>r", "F5"])
+        self.set_accels_for_action("win.preferences", ["<Control>comma"])
+
         # Synchronize autostart desktop entry if autostart is enabled
         try:
             if settings.get_setting("autostart", False):
